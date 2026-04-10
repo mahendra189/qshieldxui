@@ -1,0 +1,273 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { ChevronDown, ChevronRight, Server, Search, Activity, ShieldBan, ShieldAlert, LayoutList, CheckCircle2 } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+const portsData = [
+  {
+    id: "PRT-443",
+    portNumber: 443,
+    protocol: "TCP",
+    description: "HTTPS securely encrypts web traffic.",
+    severity: 10,
+    assets: [
+      { id: "AST-002", name: "Web API Gateway", ip: "10.42.1.205", lastDetected: "2 mins ago" },
+      { id: "AST-004", name: "Customer Portal Frontend", ip: "10.42.1.210", lastDetected: "45 mins ago" },
+    ],
+  },
+  {
+    id: "PRT-80",
+    portNumber: 80,
+    protocol: "TCP",
+    description: "Unencrypted web traffic, highly discouraged.",
+    severity: 85,
+    assets: [
+      { id: "AST-002", name: "Web API Gateway", ip: "10.42.1.205", lastDetected: "1 hour ago" },
+    ],
+  },
+  {
+    id: "PRT-22",
+    portNumber: 22,
+    protocol: "TCP",
+    description: "SSH Remote Login Protocol.",
+    severity: 45,
+    assets: [
+      { id: "AST-001", name: "Primary Database Server", ip: "192.168.1.10", lastDetected: "Just now" },
+      { id: "AST-005", name: "Data Lake Storage", ip: "192.168.2.55", lastDetected: "3 hours ago" },
+    ],
+  },
+  {
+    id: "PRT-3389",
+    portNumber: 3389,
+    protocol: "TCP",
+    description: "Microsoft Terminal Server (RDP).",
+    severity: 95,
+    assets: [
+      { id: "AST-010", name: "Admin Windows Terminal", ip: "192.168.5.105", lastDetected: "12 mins ago" },
+    ],
+  },
+  {
+    id: "PRT-53",
+    portNumber: 53,
+    protocol: "UDP",
+    description: "Domain Name System (DNS) resolution.",
+    severity: 20,
+    assets: [
+      { id: "AST-006", name: "Internal DNS Resolver", ip: "192.168.1.2", lastDetected: "5 mins ago" },
+    ],
+  },
+]
+
+function getSeverityColor(score: number) {
+  if (score >= 75) return "text-destructive"
+  if (score >= 40) return "text-amber-500"
+  return "text-emerald-500"
+}
+
+function getSeverityBg(score: number) {
+  if (score >= 75) return "bg-destructive/20 text-destructive border-destructive/20"
+  if (score >= 40) return "bg-amber-500/20 text-amber-500 border-amber-500/20"
+  return "bg-emerald-500/20 text-emerald-500 border-emerald-500/20"
+}
+
+function getSeverityLabel(score: number) {
+  if (score >= 75) return "Critical"
+  if (score >= 40) return "Elevated"
+  return "Routine"
+}
+
+export default function PortsPage() {
+  const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({})
+  const [searchQuery, setSearchQuery] = React.useState("")
+
+  const toggleRow = (id: string) => {
+    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const filteredPorts = React.useMemo(() => {
+    return portsData.filter(
+      (p) => 
+        p.portNumber.toString().includes(searchQuery) ||
+        p.protocol.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [searchQuery])
+
+  return (
+    <div className="flex h-full flex-col gap-6 p-4 md:p-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Port Exposure Monitor</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Analyze open ports across your network and execute batch policies.
+          </p>
+        </div>
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search ports or descriptions..."
+            className="w-full bg-background pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-[100px]">Port</TableHead>
+              <TableHead>Protocol</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Exposure Risk</TableHead>
+              <TableHead className="text-center">Affected Assets</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredPorts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  No ports found matching your search.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredPorts.map((portInfo) => (
+                <React.Fragment key={portInfo.id}>
+                  {/* Main Row */}
+                  <TableRow 
+                    className="cursor-pointer group border-b-0 hover:bg-muted/50 transition-colors"
+                  >
+                    <TableCell onClick={() => toggleRow(portInfo.id)}>
+                      <Button variant="ghost" size="icon" className="size-6 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
+                        {expandedRows[portInfo.id] ? (
+                          <ChevronDown className="size-4 transition-transform" />
+                        ) : (
+                          <ChevronRight className="size-4 transition-transform" />
+                        )}
+                      </Button>
+                    </TableCell>
+                    <TableCell onClick={() => toggleRow(portInfo.id)}>
+                      <span className="font-mono font-bold text-base">{portInfo.portNumber}</span>
+                    </TableCell>
+                    <TableCell onClick={() => toggleRow(portInfo.id)}>
+                      <Badge variant="outline" className="font-mono text-[10px] uppercase">{portInfo.protocol}</Badge>
+                    </TableCell>
+                    <TableCell onClick={() => toggleRow(portInfo.id)}>
+                      <span className="text-sm text-muted-foreground line-clamp-1 max-w-[300px]" title={portInfo.description}>
+                        {portInfo.description}
+                      </span>
+                    </TableCell>
+                    <TableCell onClick={() => toggleRow(portInfo.id)}>
+                      <Badge variant="outline" className={`font-semibold ${getSeverityBg(portInfo.severity)}`}>
+                        {getSeverityLabel(portInfo.severity)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center" onClick={() => toggleRow(portInfo.id)}>
+                      <Badge variant="secondary" className="px-2 py-0.5 pointer-events-none font-bold">
+                        {portInfo.assets.length}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8">
+                            Batch Actions <ChevronDown className="ml-2 size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[200px]">
+                          <DropdownMenuLabel className="text-xs">Port {portInfo.portNumber} Options</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive gap-2 cursor-pointer focus:text-destructive focus:bg-destructive/10">
+                            <ShieldBan className="size-4" /> Wait & Block Traffic
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2 cursor-pointer">
+                            <ShieldAlert className="size-4" /> Alert SOC Team
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="gap-2 cursor-pointer">
+                            <LayoutList className="size-4" /> Export Assets List
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Expandable Content Row */}
+                  {expandedRows[portInfo.id] && (
+                    <TableRow className="bg-muted/10 border-b">
+                      <TableCell colSpan={7} className="p-0 border-b-0">
+                        <div className="animate-in slide-in-from-top-2 fade-in duration-200 p-4 pl-[74px]">
+                          <div className="rounded-lg border bg-background overflow-hidden shadow-sm">
+                            <div className="bg-muted/30 px-4 py-2 border-b flex justify-between items-center text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                              <span>Asset Details</span>
+                              <span>Total: {portInfo.assets.lastDetected}</span>
+                            </div>
+                            <table className="w-full text-sm">
+                              <thead className="bg-muted/20 text-muted-foreground text-xs uppercase">
+                                <tr>
+                                  <th className="px-4 py-3 font-medium text-left w-1/4">Asset ID</th>
+                                  <th className="px-4 py-3 font-medium text-left w-1/4">Network IP</th>
+                                  <th className="px-4 py-3 font-medium text-left w-1/4">Hostname</th>
+                                  <th className="px-4 py-3 font-medium text-right w-1/4">Last Detected</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y border-t-0">
+                                {portInfo.assets.map((asset) => (
+                                  <tr key={asset.id} className="hover:bg-muted/40 transition-colors">
+                                    <td className="px-4 py-3">
+                                      <Link href={`/assets/${asset.id}`} className="font-mono text-xs text-primary hover:underline font-medium flex items-center gap-2">
+                                        <Server className="size-3 text-muted-foreground" />
+                                        {asset.id}
+                                      </Link>
+                                    </td>
+                                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground tabular-nums">{asset.ip}</td>
+                                    <td className="px-4 py-3 font-medium text-foreground/80">{asset.name}</td>
+                                    <td className="px-4 py-3 text-right">
+                                      <div className="flex items-center justify-end gap-1.5 text-muted-foreground text-xs">
+                                        <Activity className="size-3 text-emerald-500" />
+                                        {asset.lastDetected}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
