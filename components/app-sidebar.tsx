@@ -2,16 +2,12 @@
 
 import * as React from "react"
 import {
-  AudioWaveform,
   BookOpen,
   Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
   Map,
-  PieChart,
   Settings2,
   SquareTerminal,
+  Network
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -36,16 +32,21 @@ const data = {
   teams: [
     {
       name: "Acme Inc",
-      logo: GalleryVerticalEnd,
+      logo: Network,
       plan: "Enterprise",
     },
   ],
   navMain: [
     {
+      title: "Topology",
+      url: "/topology",
+      icon: Network,
+      isActive: true,
+    },
+    {
       title: "Assets",
       url: "/assets",
       icon: SquareTerminal,
-      isActive: true,
     },
     {
       title: "Services",
