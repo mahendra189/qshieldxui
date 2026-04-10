@@ -7,7 +7,8 @@ import {
   Map,
   Settings2,
   SquareTerminal,
-  Network
+  Network,
+  Target
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -25,8 +26,8 @@ import {
 // This is sample data.
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "cyb",
+    email: "cyb@gmail.com",
     avatar: "/avatars/shadcn.jpg",
   },
   teams: [
@@ -38,10 +39,15 @@ const data = {
   ],
   navMain: [
     {
+      title: "Targets",
+      url: "/targets",
+      icon: Target,
+      isActive: true,
+    },
+    {
       title: "Topology",
       url: "/topology",
       icon: Network,
-      isActive: true,
     },
     {
       title: "Assets",

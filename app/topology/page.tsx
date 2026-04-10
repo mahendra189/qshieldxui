@@ -109,11 +109,17 @@ export default function TopologyPage() {
             Live infrastructure map. Review dependencies, trace exposed services, and pinpoint risks instantly.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
+        <div className="flex items-center gap-3">
+          <select className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none">
+            <option value="all">Global View (All Targets)</option>
+            <option value="TGT-001">Acme Corp</option>
+            <option value="TGT-002">Globex Logistics</option>
+            <option value="TGT-003">Stark Industries</option>
+          </select>
+          <Button variant="outline" className="gap-2 h-9">
             <ScanLine className="size-4" /> Rescan Network
           </Button>
-          <Button className="gap-2" asChild>
+          <Button className="gap-2 h-9" asChild>
             <Link href="/assets">
               List View <ArrowRight className="size-4" />
             </Link>

@@ -70,15 +70,23 @@ export default function PortsPage() {
             Analyze open ports across your network and execute batch policies.
           </p>
         </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search ports or descriptions..."
-            className="w-full bg-background pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <select className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none">
+            <option value="all">Global View (All Targets)</option>
+            <option value="TGT-001">Acme Corp</option>
+            <option value="TGT-002">Globex Logistics</option>
+            <option value="TGT-003">Stark Industries</option>
+          </select>
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search ports or descriptions..."
+              className="w-full bg-background pl-8 h-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
