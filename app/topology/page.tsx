@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback } from "react"
+import React, { useCallback, useEffect } from "react"
 import {
   ReactFlow,
   MiniMap,
@@ -20,7 +20,6 @@ import Link from "next/link"
 import { Server, Globe, Lock, Unlock, Database, Activity, ScanLine, ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-
 import { useGlobalData } from "@/app/context/GlobalDataContext"
 
 /* --- Custom Node Types --- */
@@ -87,27 +86,52 @@ const nodeTypes = {
   service: ServiceNode,
 }
 
+// Auto-Position Tree Algorithm
+function getAutoLayout(nodes: Node[], edges: Edge[]) {
+  const layer0 = nodes.filter(n => n.type === 'asset');
+  const layer1 = nodes.filter(n => n.type === 'service');
+
+  let xOffset = 0;
+  
+  layer0.forEach((asset) => {
+    // find children attached to this asset directly
+    const childEdges = edges.filter(e => e.source === asset.id);
+    const children = layer1.filter(l => childEdges.some(ce => ce.target === l.id));
+    
+    // Subtree layout width determination
+    const subtreeWidth = Math.max(250, children.length * 150);
+    const centerX = xOffset + subtreeWidth / 2;
+
+    asset.position = { x: centerX - 100, y: 50 }; // asset node width is ~200px (100 is half)
+
+    children.forEach((child, idx) => {
+      // Spread children out symmetrically to their parent
+      const startX = centerX - ((children.length - 1) * 150) / 2;
+      child.position = { x: startX + idx * 150 - 60, y: 200 }; // 60 is roughly half service node width
+    });
+
+    xOffset += subtreeWidth + 80; // Add padding between totally separate subtrees
+  });
+
+  return { layoutedNodes: nodes, layoutedEdges: edges };
+}
+
 export default function TopologyPage() {
   const { data: dbData } = useGlobalData()
   const [selectedTarget, setSelectedTarget] = React.useState("all")
 
   // Generate dynamic topology mapping
   const { globalNodes, globalEdges } = React.useMemo(() => {
-    const newNodes: Node[] = [];
+    const rawNodes: Node[] = [];
     const newEdges: Edge[] = [];
-    
-    // Grid Tracker
-    let assetCount = 0;
-    const parentChildrenMap: Record<string, number> = {};
 
     dbData.assets.forEach((asset, index) => {
       const assetId = asset.deviceName || asset.name || asset.id || `asset-${index}`;
       
-      newNodes.push({
+      rawNodes.push({
         id: assetId,
         type: "asset",
-        // Simple Grid Layout
-        position: { x: (assetCount % 3) * 350 + 100, y: Math.floor(assetCount / 3) * 250 + 50 },
+        position: { x: 0, y: 0 }, // Will be overwritten by layout
         data: {
           id: assetId,
           realId: asset._id || asset.id || assetId,
@@ -116,7 +140,6 @@ export default function TopologyPage() {
           targetId: asset.targetId || "all" 
         }
       });
-      assetCount++;
     });
 
     // Map Services -> attach to assets
@@ -124,21 +147,16 @@ export default function TopologyPage() {
       const serviceId = `svc-${service.name}-${index}`;
       let parentId = service.runningOn;
       
-      if (!parentId || !newNodes.find(n => n.id === parentId)) {
+      if (!parentId || !rawNodes.find(n => n.id === parentId)) {
          parentId = dbData.assets[0]?.deviceName || `asset-0`; // Fallback parent
       }
 
-      const parentNode = newNodes.find(n => n.id === parentId);
-      const px = parentNode ? parentNode.position.x : 0;
-      const py = parentNode ? parentNode.position.y : 0;
+      const parentNode = rawNodes.find(n => n.id === parentId);
 
-      parentChildrenMap[parentId] = (parentChildrenMap[parentId] || 0) + 1;
-      const offsetX = (parentChildrenMap[parentId] - 1.5) * 120;
-
-      newNodes.push({
+      rawNodes.push({
         id: serviceId,
         type: "service",
-        position: { x: px + 40 + offsetX, y: py + 180 }, 
+        position: { x: 0, y: 0 }, // overwritten
         data: {
           label: service.name,
           type: service.name.includes("db") ? "Database" : service.name.includes("ssh") ? "SSH" : "HTTP",
@@ -163,19 +181,13 @@ export default function TopologyPage() {
       const portId = `port-${port.port}-${index}`;
       const parentId = dbData.assets[index % (dbData.assets.length || 1)]?.deviceName || `asset-0`;
       
-      const parentNode = newNodes.find(n => n.id === parentId);
+      const parentNode = rawNodes.find(n => n.id === parentId);
       if (!parentNode) return;
 
-      const px = parentNode.position.x;
-      const py = parentNode.position.y;
-
-      parentChildrenMap[parentId] = (parentChildrenMap[parentId] || 0) + 1;
-      const offsetX = (parentChildrenMap[parentId] - 2) * 120;
-
-      newNodes.push({
+      rawNodes.push({
         id: portId,
         type: "service",
-        position: { x: px + 40 + offsetX, y: py + 180 }, 
+        position: { x: 0, y: 0 }, // overwritten
         data: {
           label: port.service || `Port ${port.port}`,
           type: port.service === "https" ? "HTTP" : "Unencrypted",
@@ -194,7 +206,10 @@ export default function TopologyPage() {
       });
     });
 
-    return { globalNodes: newNodes, globalEdges: newEdges };
+    // Apply strict Auto tree layout here
+    const { layoutedNodes, layoutedEdges } = getAutoLayout(rawNodes, newEdges);
+    
+    return { globalNodes: layoutedNodes, globalEdges: layoutedEdges };
   }, [dbData.assets, dbData.services, dbData.ports]);
 
 
@@ -226,7 +241,7 @@ export default function TopologyPage() {
         <div className="pointer-events-auto">
           <h1 className="text-2xl font-semibold tracking-tight">Network Topology</h1>
           <p className="text-sm text-muted-foreground mt-1 bg-background/80 backdrop-blur rounded px-1 py-0.5 inline-block">
-            Live mapped infrastructure dependencies.
+            Live mapped infrastructure dependencies auto-organized as a tree.
           </p>
         </div>
         <div className="flex items-center gap-3 pointer-events-auto">
