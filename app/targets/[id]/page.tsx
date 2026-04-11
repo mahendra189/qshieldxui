@@ -27,7 +27,7 @@ import { useGlobalData } from "@/app/context/GlobalDataContext"
 export default function TargetDetailPage() {
   const params = useParams()
   const targetId = params.id as string
-  const { data } = useGlobalData()
+  const { data, refreshData } = useGlobalData()
 
   // Find target from live context
   const rawTarget = data.targets.find(t => t._id === targetId || t.id === targetId)
@@ -35,9 +35,7 @@ export default function TargetDetailPage() {
   // Simulation state for the interactive Agent Chat / Logs
   const [chatMessages, setChatMessages] = React.useState([
     { role: 'agent', content: "Initializing discovery pipeline...", type: "log" },
-    { role: 'agent', content: "Running Subfinder for subdomain enumeration.", type: "log" },
-    { role: 'agent', content: "Found 12 raw subdomains. Handoff to HTTPX for live host checking.", type: "log" },
-    { role: 'agent', content: "Starting Nmap against verified live hosts.", type: "log" }
+    { role: 'agent', content: "Ready for operations. Describe reconnaissance goal.", type: "chat" }
   ]);
   const [chatInput, setChatInput] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -46,24 +44,44 @@ export default function TargetDetailPage() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages]);
+  }, [chatMessages, data]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
 
     const newMsg = { role: 'user', content: chatInput, type: 'chat' };
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput("");
+    
+    // Optimistic UI updates
+    setChatMessages(prev => [
+      ...prev,
+      { role: 'agent', content: `Acknowledged command. Forwarding instructions to external agent...`, type: 'log' },
+      { role: 'agent', content: `Running Subfinder, HTTPX, and NMap for deep network mapping. Please wait...`, type: 'log' }
+    ]);
 
-    // Simulate Agent reacting to user instructions
-    setTimeout(() => {
-      setChatMessages(prev => [
-        ...prev,
-        { role: 'agent', content: `Acknowledged command: "${newMsg.content}"`, type: 'chat' },
-        { role: 'agent', content: `Adjusting scanning parameters and executing...`, type: 'log' }
-      ]);
-    }, 800);
+    try {
+      const resp = await fetch('/api/agent/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: newMsg.content, targetId: targetId })
+      });
+
+      if (resp.ok) {
+        setChatMessages(prev => [
+          ...prev,
+          { role: 'agent', content: "Reconnaissance complete. Parsed agent output to Assets, Ports, and Services schema.", type: "log" },
+          { role: 'agent', content: "Scan results successfully synchronized with backend database.", type: "chat" }
+        ]);
+        // Trigger live refresh so the counter headers and tables immediately update!
+        await refreshData();
+      } else {
+         setChatMessages(prev => [...prev, { role: 'agent', content: "Execution failed due to server error.", type: "log" }]);
+      }
+    } catch (e) {
+      setChatMessages(prev => [...prev, { role: 'agent', content: "Network error trying to engage agent.", type: "log" }]);
+    }
   }
 
   if (!rawTarget) {

@@ -74,11 +74,16 @@ export default function TargetsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTargets.map((target) => (
+            {filteredTargets.map((target) => {
+              // Calculate real counts from global data based on Agent scans
+              const targetId = target._id || target.id;
+              const realAssetsCount = data.assets.filter(a => a.targetId === targetId).length;
+              
+              return (
               <TableRow 
-                key={target._id || target.id} 
+                key={targetId} 
                 className="hover:bg-muted/50 cursor-pointer"
-                onClick={() => router.push(`/targets/${target._id || target.id}`)}
+                onClick={() => router.push(`/targets/${targetId}`)}
               >
                 <TableCell>
                   <div className="flex items-start gap-3">
@@ -88,7 +93,7 @@ export default function TargetsPage() {
                     <div className="flex flex-col">
                       <span className="font-semibold">{target.organizationName || target.name}</span>
                       <span className="text-xs text-muted-foreground font-mono flex items-center gap-1">
-                        <Globe className="size-3" /> {target.primaryDomain || target.ipRange}
+                        <Globe className="size-3" /> {target.primaryDomain || target.domain || target.ipRange}
                       </span>
                     </div>
                   </div>
@@ -120,7 +125,7 @@ export default function TargetsPage() {
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="inline-flex items-center justify-center bg-muted px-2.5 py-0.5 rounded-full text-xs font-bold font-mono">
-                    {target.assets || 0}
+                    {realAssetsCount > 0 ? realAssetsCount : (target.assets || 0)}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
@@ -136,7 +141,7 @@ export default function TargetsPage() {
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </div>

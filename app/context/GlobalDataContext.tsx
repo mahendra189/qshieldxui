@@ -13,6 +13,7 @@ export interface GlobalDataState {
 interface GlobalDataContextType {
   data: GlobalDataState;
   isLoading: boolean;
+  refreshData: () => Promise<void>;
   setTargets: (targets: any[]) => void;
   setAssets: (assets: any[]) => void;
   setServices: (services: any[]) => void;
@@ -32,30 +33,28 @@ export function GlobalDataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<GlobalDataState>(defaultState);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data globally on initial app mount
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const response = await fetch('/api/global-data');
-        if (response.ok) {
-          const result = await response.json();
-          setData({
-            targets: result.targets || [],
-            assets: result.assets || [],
-            services: result.services || [],
-            ports: result.ports || [],
-          });
-        } else {
-          console.error("Failed to load initial data from API");
-        }
-      } catch (error) {
-        console.error("Network or API error:", error);
-      } finally {
-        setIsLoading(false);
+  // Fetch data globally
+  const refreshData = async () => {
+    try {
+      const response = await fetch('/api/global-data');
+      if (response.ok) {
+        const result = await response.json();
+        setData({
+          targets: result.targets || [],
+          assets: result.assets || [],
+          services: result.services || [],
+          ports: result.ports || [],
+        });
       }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    loadData();
+  useEffect(() => {
+    refreshData();
   }, []);
 
   const setTargets = (targets: any[]) => setData((prev) => ({ ...prev, targets }));
@@ -68,6 +67,7 @@ export function GlobalDataProvider({ children }: { children: ReactNode }) {
       value={{
         data,
         isLoading,
+        refreshData,
         setTargets,
         setAssets,
         setServices,
