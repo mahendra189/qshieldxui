@@ -1,9 +1,8 @@
 "use client"
-
 import * as React from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Globe, Activity, ShieldCheck, Cpu, TerminalSquare, AlertTriangle, CheckCircle2, XCircle } from "lucide-react"
+import { ChevronLeft, Globe, Activity, ShieldCheck, Cpu, TerminalSquare, AlertTriangle, CheckCircle2, XCircle, ArrowUpRight } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -67,7 +66,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           <TabsTrigger value="vulnerabilities">Vulnerabilities</TabsTrigger>
           <TabsTrigger value="network">Network Config</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {/* Quick Stats Summary */}

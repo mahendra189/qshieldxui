@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { GlobalDataProvider } from "@/app/context/GlobalDataContext"
 import { cn } from "@/lib/utils";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'})
@@ -26,10 +27,11 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
     >
       <body>
-        <ThemeProvider>
-          <TooltipProvider>
-            <SidebarProvider>
-              <AppSidebar />
+        <GlobalDataProvider>
+          <ThemeProvider>
+            <TooltipProvider>
+              <SidebarProvider>
+                <AppSidebar />
               <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
                   <div className="flex items-center gap-2 px-4">
@@ -43,6 +45,7 @@ export default function RootLayout({
             </SidebarProvider>
           </TooltipProvider>
         </ThemeProvider>
+        </GlobalDataProvider>
       </body>
     </html>
   )

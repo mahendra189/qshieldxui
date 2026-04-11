@@ -1,10 +1,15 @@
+"use client";
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Shield, Activity, ShieldCheck, FileText } from "lucide-react"
+import { useGlobalData } from "@/app/context/GlobalDataContext"
 
 export default function Page() {
+  const { data } = useGlobalData();
+
   return (
     <div className="container mx-auto p-8 max-w-5xl">
       <div className="flex flex-col gap-6">
@@ -39,8 +44,8 @@ export default function Page() {
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">142</div>
-              <p className="text-xs text-muted-foreground mt-1">12 new this week</p>
+              <div className="text-2xl font-bold">{data.assets.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Globally synced assets</p>
             </CardContent>
           </Card>
 
