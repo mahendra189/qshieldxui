@@ -17,19 +17,22 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { targetsData } from "@/lib/mock-data"
+import { useGlobalData } from "@/app/context/GlobalDataContext"
 
 export default function TargetsPage() {
   const router = useRouter()
+  const { data } = useGlobalData()
   const [searchQuery, setSearchQuery] = React.useState("")
 
   const filteredTargets = React.useMemo(() => {
-    return targetsData.filter(
-      (t) => 
-        t.organizationName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        t.primaryDomain.toLowerCase().includes(searchQuery.toLowerCase())
+    return data.targets.filter(
+      (t) => {
+        const nameMatch = (t.organizationName || t.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+        const domainMatch = (t.primaryDomain || t.ipRange || "").toLowerCase().includes(searchQuery.toLowerCase());
+        return nameMatch || domainMatch;
+      }
     )
-  }, [searchQuery])
+  }, [data.targets, searchQuery])
 
   return (
     <div className="flex h-full flex-col gap-6 p-4 md:p-8">
@@ -73,9 +76,9 @@ export default function TargetsPage() {
           <TableBody>
             {filteredTargets.map((target) => (
               <TableRow 
-                key={target.id} 
+                key={target._id || target.id} 
                 className="hover:bg-muted/50 cursor-pointer"
-                onClick={() => router.push(`/targets/${target.id}`)}
+                onClick={() => router.push(`/targets/${target._id || target.id}`)}
               >
                 <TableCell>
                   <div className="flex items-start gap-3">
@@ -83,39 +86,41 @@ export default function TargetsPage() {
                       <Building2 className="size-4 text-primary" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-semibold">{target.organizationName}</span>
+                      <span className="font-semibold">{target.organizationName || target.name}</span>
                       <span className="text-xs text-muted-foreground font-mono flex items-center gap-1">
-                        <Globe className="size-3" /> {target.primaryDomain}
+                        <Globe className="size-3" /> {target.primaryDomain || target.ipRange}
                       </span>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm">{target.industry}</span>
-                    <Badge variant="outline" className="w-fit text-[10px]">+{target.domainsCount} Subdomains</Badge>
+                    <span className="text-sm">{target.industry || target.riskLevel || 'Unknown'}</span>
+                    <Badge variant="outline" className="w-fit text-[10px]">
+                      +{target.domainsCount || 0} Subdomains
+                    </Badge>
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {target.status === "Scanning" && <Activity className="size-4 text-amber-500 animate-pulse" />}
-                    {target.status === "Idle" && <Server className="size-4 text-emerald-500" />}
+                    {(target.status === "Idle" || target.status === "Active") && <Server className="size-4 text-emerald-500" />}
                     {target.status === "Paused" && <Pause className="size-4 text-muted-foreground" />}
                     
                     <div className="flex flex-col">
                       <span className={`text-sm font-medium ${
                         target.status === 'Scanning' ? 'text-amber-500' :
-                        target.status === 'Idle' ? 'text-emerald-500' : 'text-muted-foreground'
+                        (target.status === 'Idle' || target.status === 'Active') ? 'text-emerald-500' : 'text-muted-foreground'
                       }`}>
-                        {target.status}
+                        {target.status || 'Active'}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">Ran {target.lastCompleted}</span>
+                      <span className="text-[10px] text-muted-foreground">Ran {target.lastCompleted || 'Recently'}</span>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="inline-flex items-center justify-center bg-muted px-2.5 py-0.5 rounded-full text-xs font-bold font-mono">
-                    {target.assets}
+                    {target.assets || 0}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
@@ -124,7 +129,7 @@ export default function TargetsPage() {
                     size="icon" 
                     title="Toggle Scan Engine"
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevents routing to detail page when just clicking Play/Pause
+                      e.stopPropagation();
                     }}
                   >
                     {target.status === "Paused" ? <Play className="size-4 text-emerald-500" /> : <Pause className="size-4 text-muted-foreground" />}

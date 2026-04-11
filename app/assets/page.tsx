@@ -13,20 +13,21 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Search } from "lucide-react"
 
-import { assets, targetsData } from "@/lib/mock-data"
 import { Input } from "@/components/ui/input"
+import { useGlobalData } from "@/app/context/GlobalDataContext"
 
 export default function AssetsPage() {
+  const { data } = useGlobalData();
   const [selectedTarget, setSelectedTarget] = React.useState("all")
   const [searchQuery, setSearchQuery] = React.useState("")
 
   const filteredAssets = React.useMemo(() => {
-    return assets.filter((a) => {
+    return data.assets.filter((a) => {
       const matchesTarget = selectedTarget === "all" || a.targetId === selectedTarget
-      const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.type.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesSearch = (a.name || a.deviceName || "").toLowerCase().includes(searchQuery.toLowerCase()) || (a.type || "").toLowerCase().includes(searchQuery.toLowerCase())
       return matchesTarget && matchesSearch
     })
-  }, [selectedTarget, searchQuery])
+  }, [data.assets, selectedTarget, searchQuery])
 
   return (
     <div className="flex h-full flex-col gap-6 p-4 md:p-8">
@@ -44,8 +45,8 @@ export default function AssetsPage() {
             onChange={(e) => setSelectedTarget(e.target.value)}
           >
             <option value="all">Global View (All Targets)</option>
-            {targetsData.map(t => (
-              <option key={t.id} value={t.id}>{t.organizationName}</option>
+            {data.targets.map(t => (
+              <option key={t._id || t.id} value={t._id || t.id}>{t.organizationName || t.name}</option>
             ))}
           </select>
           <div className="relative w-full md:w-64">
@@ -81,32 +82,32 @@ export default function AssetsPage() {
               </TableRow>
             ) : (
               filteredAssets.map((asset) => (
-                <TableRow key={asset.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium">{asset.name}</TableCell>
+                <TableRow key={asset._id || asset.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">{asset.name || asset.deviceName}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-mono text-xs">
-                      {asset.type}
+                      {asset.type || 'Unknown'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {asset.lastScanned}
+                    {asset.lastScanned || '-'}
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        asset.status === "Active"
+                        (asset.status || 'Active') === "Active"
                           ? "default"
                           : asset.status === "Inactive"
                             ? "secondary"
                             : "destructive"
                       }
                     >
-                      {asset.status}
+                      {asset.status || 'Active'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Link
-                      href={`/assets/${asset.id}`}
+                      href={`/assets/${asset._id || asset.id}`}
                       className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
                     >
                       View Details
