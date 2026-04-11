@@ -17,14 +17,51 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
+import { useGlobalData } from "@/app/context/GlobalDataContext"
+
 export default function NewTargetPage() {
   const router = useRouter()
+  const { data, setTargets } = useGlobalData()
+  
+  const [orgName, setOrgName] = React.useState("")
+  const [domain, setDomain] = React.useState("")
+  const [industry, setIndustry] = React.useState("")
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  const handleOnboard = (e: React.FormEvent) => {
+  const handleOnboard = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real application, submit the payload to /api/targets
-    // Here we'll simulate onboarding and redirect back to the list
-    router.push("/targets")
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/api/targets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationName: orgName,
+          domain: domain,
+          industry: industry,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          // Immediately inject into context so when they land on /targets, it's already there
+          setTargets([...data.targets, result.target])
+          router.push("/targets")
+        }
+      } else {
+        console.error("Failed to onboard target:", await response.text())
+        alert("Failed to onboard target on the server.")
+        setIsSubmitting(false)
+      }
+    } catch (err) {
+      console.error("Error submitting form:", err)
+      alert("Error reaching the API.")
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -54,23 +91,38 @@ export default function NewTargetPage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Organization Name <span className="text-destructive">*</span></label>
-              <Input required placeholder="e.g. Acme Corp" />
+              <Input 
+                required 
+                placeholder="e.g. Acme Corp" 
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Primary Domain <span className="text-destructive">*</span></label>
               <div className="relative">
                 <Globe className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input required placeholder="e.g. acme.com" className="pl-9" />
+                <Input 
+                  required 
+                  placeholder="e.g. acme.com" 
+                  className="pl-9" 
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                />
               </div>
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Industry Profile</label>
-              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+              <select 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+              >
                 <option value="">Select an industry (Optional)</option>
-                <option>Financial Services (Strict)</option>
-                <option>Technology (Standard)</option>
-                <option>Healthcare (HIPAA Mode)</option>
-                <option>E-Commerce</option>
+                <option value="Financial Services (Strict)">Financial Services (Strict)</option>
+                <option value="Technology (Standard)">Technology (Standard)</option>
+                <option value="Healthcare (HIPAA Mode)">Healthcare (HIPAA Mode)</option>
+                <option value="E-Commerce">E-Commerce</option>
               </select>
             </div>
           </CardContent>
@@ -157,8 +209,10 @@ export default function NewTargetPage() {
           <CardFooter className="bg-muted/30 border-t items-center justify-between py-4">
             <span className="text-xs text-muted-foreground flex items-center gap-1.5"><ShieldCheck className="size-4" /> Secure Pipeline Initialization</span>
             <div className="flex items-center gap-3">
-              <Button type="button" variant="ghost" className="text-muted-foreground" onClick={() => router.push("/targets")}>Cancel</Button>
-              <Button type="submit">Deploy Target Agent</Button>
+              <Button type="button" variant="ghost" className="text-muted-foreground" onClick={() => router.push("/targets")} disabled={isSubmitting}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Deploying..." : "Deploy Target Agent"}
+              </Button>
             </div>
           </CardFooter>
         </Card>
@@ -167,3 +221,4 @@ export default function NewTargetPage() {
     </div>
   )
 }
+

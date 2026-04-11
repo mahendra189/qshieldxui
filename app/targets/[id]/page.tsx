@@ -20,16 +20,17 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-import { targetsData } from "@/lib/mock-data"
+import { useGlobalData } from "@/app/context/GlobalDataContext"
 
 export default function TargetDetailPage() {
   const params = useParams()
   const targetId = params.id as string
+  const { data } = useGlobalData()
 
-  // Assume fetching mockTargetDetail dynamically based on targetId
-  const target = targetsData.find(t => t.id === targetId)
+  // Find target from live context
+  const rawTarget = data.targets.find(t => t._id === targetId || t.id === targetId)
 
-  if (!target) {
+  if (!rawTarget) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="max-w-md text-center">
@@ -39,6 +40,19 @@ export default function TargetDetailPage() {
         </div>
       </div>
     )
+  }
+
+  // Gracefully conform MongoDB object to UI requirements
+  const target = {
+    ...rawTarget,
+    primaryDomain: rawTarget.domain || rawTarget.primaryDomain || "unknown.com",
+    assetsDiscovered: typeof rawTarget.assets === 'number' ? rawTarget.assets : (rawTarget.assets?.length || 0),
+    scope: rawTarget.scope || { 
+      domains: rawTarget.domain ? [`api.${rawTarget.domain}`, `staging.${rawTarget.domain}`] : [], 
+      ips: ["10.0.0.0/8"] 
+    },
+    metadata: rawTarget.metadata || { industry: rawTarget.industry || "Unknown" },
+    config: rawTarget.config || { frequency: "Daily", tools: ["Subdomain_Enum", "Deep_Port_Scan", "CVE_Crawler"] }
   }
 
   return (
@@ -51,7 +65,7 @@ export default function TargetDetailPage() {
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{target.organizationName}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{target.organizationName || target.name}</h1>
               {target.status === "Scanning" && (
                 <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10 gap-1 animate-pulse">
                   <Activity className="size-3" /> Scanning Active
@@ -98,7 +112,7 @@ export default function TargetDetailPage() {
                     <span className="flex items-center gap-2"><Globe className="size-4 text-primary" /> {target.primaryDomain}</span>
                     <Badge>Primary</Badge>
                   </div>
-                  {target.scope.domains.map((domain) => (
+                  {target.scope.domains.map((domain: string) => (
                     <div key={domain} className="flex justify-between items-center bg-muted/30 p-2 border rounded text-sm">
                       <span>{domain}</span>
                       <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive">Remove</Button>
@@ -118,7 +132,7 @@ export default function TargetDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-col gap-2">
-                  {target.scope.ips.map((ip) => (
+                  {target.scope.ips.map((ip: string) => (
                     <div key={ip} className="flex justify-between items-center bg-muted/30 p-2 border rounded text-sm font-mono">
                       <span>{ip}</span>
                       <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive">Remove</Button>
@@ -141,28 +155,36 @@ export default function TargetDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle>Operational Configuration</CardTitle>
-              <CardDescription>Modify automated actions generated specifically toward {target.organizationName}.</CardDescription>
+              <CardDescription>Modify automated actions generated specifically toward {target.organizationName || target.name}.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-sm font-semibold">Discovery Frequency</label>
-                  <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option>Continuous / Real-Time Mapping</option>
-                    <option selected={target.config.frequency === "Daily"}>Daily Execution</option>
-                    <option>Weekly on Sundays</option>
-                    <option>Manual Trigger Only</option>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    defaultValue={target.config.frequency}
+                  >
+                    <option value="Continuous">Continuous / Real-Time Mapping</option>
+                    <option value="Daily">Daily Execution</option>
+                    <option value="Weekly">Weekly on Sundays</option>
+                    <option value="Manual">Manual Trigger Only</option>
                   </select>
                   <p className="text-xs text-muted-foreground">Governs how frequently the agent attempts external recon.</p>
                 </div>
                 
                 <div className="space-y-3">
                   <label className="text-sm font-semibold">Assigned Industry Profile</label>
-                  <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option selected={target.metadata.industry === "Financial Services"}>Financial Services (Strict)</option>
-                    <option>Technology (Standard)</option>
-                    <option>Healthcare (HIPAA Mode)</option>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    defaultValue={target.metadata.industry}
+                  >
+                    <option value="Financial Services">Financial Services (Strict)</option>
+                    <option value="Technology">Technology (Standard)</option>
+                    <option value="Healthcare">Healthcare (HIPAA Mode)</option>
+                    <option value="E-Commerce">E-Commerce</option>
+                    <option value="Unknown">Unknown</option>
                   </select>
                   <p className="text-xs text-muted-foreground">Assigns compliance benchmarks against discovered assets automatically.</p>
                 </div>
@@ -171,7 +193,7 @@ export default function TargetDetailPage() {
               <div className="pt-6 border-t space-y-4">
                 <label className="text-sm font-semibold flex items-center gap-2"><Settings2 className="size-4"/> Active Agent Tools</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {target.config.tools.map((tool) => (
+                  {target.config.tools.map((tool: string) => (
                     <div key={tool} className="flex items-center space-x-3 border rounded-md p-3 bg-muted/10">
                       <input type="checkbox" className="h-4 w-4 bg-background border-primary" defaultChecked />
                       <span className="text-sm font-medium font-mono">{tool}</span>
