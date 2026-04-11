@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ChevronDown, ChevronRight, Server, Search, Activity, ShieldBan, ShieldAlert, LayoutList, CheckCircle2 } from "lucide-react"
+import { ChevronDown, ChevronRight, Server, Search, Activity, ShieldBan, ShieldAlert, LayoutList } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,13 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { portsData } from "@/lib/mock-data"
-
-function getSeverityColor(score: number) {
-  if (score >= 75) return "text-destructive"
-  if (score >= 40) return "text-amber-500"
-  return "text-emerald-500"
-}
+import { portsData, targetsData } from "@/lib/mock-data"
 
 function getSeverityBg(score: number) {
   if (score >= 75) return "bg-destructive/20 text-destructive border-destructive/20"
@@ -47,6 +41,7 @@ function getSeverityLabel(score: number) {
 export default function PortsPage() {
   const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [selectedTarget, setSelectedTarget] = React.useState("all")
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -54,12 +49,15 @@ export default function PortsPage() {
 
   const filteredPorts = React.useMemo(() => {
     return portsData.filter(
-      (p) => 
-        p.portNumber.toString().includes(searchQuery) ||
-        p.protocol.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+      (p) => {
+        const matchesTarget = selectedTarget === "all" || p.targetId === selectedTarget
+        const matchesSearch = p.portNumber.toString().includes(searchQuery) ||
+                              p.protocol.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              p.description.toLowerCase().includes(searchQuery.toLowerCase())
+        return matchesTarget && matchesSearch
+      }
     )
-  }, [searchQuery])
+  }, [searchQuery, selectedTarget])
 
   return (
     <div className="flex h-full flex-col gap-6 p-4 md:p-8">
@@ -71,11 +69,15 @@ export default function PortsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <select className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none">
+          <select 
+            className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none"
+            value={selectedTarget}
+            onChange={(e) => setSelectedTarget(e.target.value)}
+          >
             <option value="all">Global View (All Targets)</option>
-            <option value="TGT-001">Acme Corp</option>
-            <option value="TGT-002">Globex Logistics</option>
-            <option value="TGT-003">Stark Industries</option>
+            {targetsData.map(t => (
+              <option key={t.id} value={t.id}>{t.organizationName}</option>
+            ))}
           </select>
           <div className="relative w-full md:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

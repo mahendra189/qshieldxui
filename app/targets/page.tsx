@@ -17,38 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-const targetsData = [
-  {
-    id: "TGT-001",
-    organizationName: "Acme Corp",
-    primaryDomain: "acme.com",
-    domainsCount: 3,
-    status: "Scanning",
-    lastCompleted: "2 hrs ago",
-    assets: 142,
-    industry: "Fintech",
-  },
-  {
-    id: "TGT-002",
-    organizationName: "Globex Logistics",
-    primaryDomain: "globex.io",
-    domainsCount: 1,
-    status: "Idle",
-    lastCompleted: "12 hrs ago",
-    assets: 34,
-    industry: "Supply Chain",
-  },
-  {
-    id: "TGT-003",
-    organizationName: "Stark Industries",
-    primaryDomain: "stark.net",
-    domainsCount: 12,
-    status: "Paused",
-    lastCompleted: "3 days ago",
-    assets: 589,
-    industry: "Manufacturing",
-  }
-]
+import { targetsData } from "@/lib/mock-data"
 
 export default function TargetsPage() {
   const router = useRouter()

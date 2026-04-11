@@ -20,34 +20,26 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// Locally mock the deep fetch for this target
-const mockTargetDetail = {
-  id: "TGT-001",
-  organizationName: "Acme Corp",
-  primaryDomain: "acme.com",
-  status: "Scanning",
-  lastCompleted: "2023-11-20T10:30:00Z",
-  assetsDiscovered: 142,
-  metadata: {
-    industry: "Financial Services",
-    notes: "Highly regulated environment via PCI-DSS."
-  },
-  scope: {
-    domains: ["acme-internal.local", "acme-staging.com", "api.acme.com"],
-    ips: ["192.168.1.0/24", "10.42.0.0/16"]
-  },
-  config: {
-    frequency: "Daily",
-    tools: ["Subfinder", "Nmap_Deep", "Nuclei_Critical_Only", "TLS_Scanner"]
-  }
-}
+import { targetsData } from "@/lib/mock-data"
 
 export default function TargetDetailPage() {
   const params = useParams()
   const targetId = params.id as string
 
-  // Assume fetching mockTargetDetail dynamically based on targetId in real implementation
-  const target = mockTargetDetail
+  // Assume fetching mockTargetDetail dynamically based on targetId
+  const target = targetsData.find(t => t.id === targetId)
+
+  if (!target) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="max-w-md text-center">
+          <h2 className="text-2xl font-bold mb-2">Target Profile Not Found</h2>
+          <p className="text-muted-foreground mb-6">The monitoring scope mapped to ID {targetId} could not be located.</p>
+          <Button asChild><Link href="/targets">Return to Targets List</Link></Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full">

@@ -20,6 +20,7 @@ import Link from "next/link"
 import { Server, Globe, Lock, Unlock, Database, Activity, ScanLine, ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { initialNodes as globalNodes, initialEdges as globalEdges, targetsData } from "@/lib/mock-data"
 
 /* --- Custom Node Types --- */
 
@@ -87,34 +88,54 @@ const nodeTypes = {
   service: ServiceNode,
 }
 
-/* --- Mock Data Initializer --- */
-import { initialNodes, initialEdges } from "@/lib/mock-data"
-
 export default function TopologyPage() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [selectedTarget, setSelectedTarget] = React.useState("all")
 
-  const onConnect = useCallback(
+  // Force local state to re-derive from selectedTarget
+  const targetNodes = React.useMemo(() => {
+    return globalNodes.filter(n => selectedTarget === "all" || n.data.targetId === selectedTarget)
+  }, [selectedTarget])
+
+  const targetEdges = React.useMemo(() => {
+    // Only show edges where both source and target exist in targetNodes
+    const nodeIds = new Set(targetNodes.map(n => n.id))
+    return globalEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+  }, [targetNodes, selectedTarget])
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(targetNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(targetEdges)
+
+  const onConnect = React.useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   )
 
+  // React to dropdown resets directly
+  React.useEffect(() => {
+    setNodes(targetNodes)
+    setEdges(targetEdges)
+  }, [targetNodes, targetEdges, setNodes, setEdges])
+
   return (
-    <div className="flex h-full flex-col p-4 md:p-8">
+    <div className="flex flex-col h-full relative">
       {/* Header Panel */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6 shrink-0 z-10 relative">
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6 shrink-0 z-10 relative px-4 md:px-8 top-4 md:top-8 pointer-events-none">
+        <div className="pointer-events-auto">
           <h1 className="text-2xl font-semibold tracking-tight">Network Topology</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1 bg-background/80 backdrop-blur rounded px-1 py-0.5 inline-block">
             Live infrastructure map. Review dependencies, trace exposed services, and pinpoint risks instantly.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <select className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none">
+        <div className="flex items-center gap-3 pointer-events-auto">
+          <select 
+            className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none"
+            value={selectedTarget}
+            onChange={(e) => setSelectedTarget(e.target.value)}
+          >
             <option value="all">Global View (All Targets)</option>
-            <option value="TGT-001">Acme Corp</option>
-            <option value="TGT-002">Globex Logistics</option>
-            <option value="TGT-003">Stark Industries</option>
+            {targetsData.map(t => (
+              <option key={t.id} value={t.id}>{t.organizationName}</option>
+            ))}
           </select>
           <Button variant="outline" className="gap-2 h-9">
             <ScanLine className="size-4" /> Rescan Network

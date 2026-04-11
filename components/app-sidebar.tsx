@@ -8,7 +8,8 @@ import {
   Settings2,
   SquareTerminal,
   Network,
-  Target
+  Target,
+  Shield
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -32,9 +33,9 @@ const data = {
   },
   teams: [
     {
-      name: "Acme Inc",
-      logo: Network,
-      plan: "Enterprise",
+      name: "CYB",
+      logo: Shield,
+      plan: "Security",
     },
   ],
   navMain: [

@@ -1,5 +1,9 @@
+"use client"
+
+import * as React from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Globe, Activity, ShieldCheck, Cpu, HardDrive, TerminalSquare, AlertTriangle, ArrowUpRight, CheckCircle2, XCircle } from "lucide-react"
+import { ChevronLeft, Globe, Activity, ShieldCheck, Cpu, TerminalSquare, AlertTriangle, CheckCircle2, XCircle } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
