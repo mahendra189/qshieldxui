@@ -7,14 +7,15 @@ export async function GET() {
     const db = client.db("cyb_dashboard"); // feel free to change the DB name 
 
     // Concurrently fetch all required collections to power the context
-    const [targets, assets, services, ports] = await Promise.all([
+    const [targets, assets, services, ports, topology] = await Promise.all([
       db.collection("targets").find({}).toArray(),
       db.collection("assets").find({}).toArray(),
       db.collection("services").find({}).toArray(),
       db.collection("ports").find({}).toArray(),
+      db.collection("topology").find({}).toArray(),
     ]);
 
-    return NextResponse.json({ targets, assets, services, ports });
+    return NextResponse.json({ targets, assets, services, ports, topology });
   } catch (error) {
     console.error("MongoDB fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch data from MongoDB" }, { status: 500 });

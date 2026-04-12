@@ -8,6 +8,7 @@ export interface GlobalDataState {
   assets: any[];
   services: any[];
   ports: any[];
+  topology: any[];
 }
 
 interface GlobalDataContextType {
@@ -18,6 +19,7 @@ interface GlobalDataContextType {
   setAssets: (assets: any[]) => void;
   setServices: (services: any[]) => void;
   setPorts: (ports: any[]) => void;
+  setTopology: (topology: any[]) => void;
 }
 
 const defaultState: GlobalDataState = {
@@ -25,6 +27,7 @@ const defaultState: GlobalDataState = {
   assets: [],
   services: [],
   ports: [],
+  topology: [],
 };
 
 const GlobalDataContext = createContext<GlobalDataContextType | undefined>(undefined);
@@ -44,6 +47,7 @@ export function GlobalDataProvider({ children }: { children: ReactNode }) {
           assets: result.assets || [],
           services: result.services || [],
           ports: result.ports || [],
+          topology: result.topology || [],
         });
       }
     } catch (error) {
@@ -61,6 +65,7 @@ export function GlobalDataProvider({ children }: { children: ReactNode }) {
   const setAssets = (assets: any[]) => setData((prev) => ({ ...prev, assets }));
   const setServices = (services: any[]) => setData((prev) => ({ ...prev, services }));
   const setPorts = (ports: any[]) => setData((prev) => ({ ...prev, ports }));
+  const setTopology = (topology: any[]) => setData((prev) => ({ ...prev, topology }));
 
   return (
     <GlobalDataContext.Provider
@@ -72,6 +77,7 @@ export function GlobalDataProvider({ children }: { children: ReactNode }) {
         setAssets,
         setServices,
         setPorts,
+        setTopology,
       }}
     >
       {children}

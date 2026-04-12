@@ -122,6 +122,39 @@ export default function TopologyPage() {
 
   // Generate dynamic topology mapping
   const { globalNodes, globalEdges } = React.useMemo(() => {
+    // Check if we have a pre-computed topology for the selected target
+    // If selectedTarget is 'all', we might want to merge them, but for now let's just use the first one or fall back
+    const targetTopology = selectedTarget !== "all" 
+      ? dbData.topology.find(t => t.targetId === selectedTarget)
+      : dbData.topology[0]; // Just a heuristic for "default" topology
+
+    if (targetTopology && targetTopology.nodes && targetTopology.edges) {
+      console.log("Using pre-computed topology for target:", selectedTarget);
+      
+      const mappedNodes = targetTopology.nodes.map((node: any) => ({
+        id: node.id,
+        type: "asset", // Default to asset type for UI consistency
+        position: node.position || { x: Math.random() * 400, y: Math.random() * 400 },
+        data: {
+          id: node.id,
+          realId: node.id,
+          name: node.name,
+          ip: node.ip || "Unknown",
+          targetId: targetTopology.targetId
+        }
+      }));
+
+      const mappedEdges = targetTopology.edges.map((edge: any) => ({
+        id: `edge-${edge.source}-${edge.target}`,
+        source: edge.source,
+        target: edge.target,
+        type: "smoothstep",
+        style: { stroke: '#4b5563', strokeWidth: 2 }
+      }));
+
+      return { globalNodes: mappedNodes, globalEdges: mappedEdges };
+    }
+
     const rawNodes: Node[] = [];
     const newEdges: Edge[] = [];
 
@@ -210,7 +243,7 @@ export default function TopologyPage() {
     const { layoutedNodes, layoutedEdges } = getAutoLayout(rawNodes, newEdges);
     
     return { globalNodes: layoutedNodes, globalEdges: layoutedEdges };
-  }, [dbData.assets, dbData.services, dbData.ports]);
+  }, [dbData.assets, dbData.services, dbData.ports, dbData.topology, selectedTarget]);
 
 
   const targetNodes = React.useMemo(() => {

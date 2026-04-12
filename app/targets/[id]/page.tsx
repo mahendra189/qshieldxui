@@ -6,7 +6,8 @@ import Link from "next/link"
 import {
   Building2, Globe, Activity, Server, Target, CornerDownRight, Network,
   Terminal, Bot, Send, HardDrive, ListEnd, Clock,
-  AlertTriangle
+  AlertTriangle,
+  PlayIcon
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import { useGlobalData } from "@/app/context/GlobalDataContext"
+import { Play } from "next/font/google"
 
 export default function TargetDetailPage() {
   const params = useParams()
@@ -53,7 +55,7 @@ export default function TargetDetailPage() {
     const newMsg = { role: 'user', content: chatInput, type: 'chat' };
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput("");
-    
+
     // Optimistic UI updates
     setChatMessages(prev => [
       ...prev,
@@ -69,18 +71,59 @@ export default function TargetDetailPage() {
       });
 
       if (resp.ok) {
-        setChatMessages(prev => [
-          ...prev,
-          { role: 'agent', content: "Reconnaissance complete. Parsed agent output to Assets, Ports, and Services schema.", type: "log" },
-          { role: 'agent', content: "Scan results successfully synchronized with backend database.", type: "chat" }
-        ]);
-        // Trigger live refresh so the counter headers and tables immediately update!
+        const result = await resp.json();
+        console.log("Agent Scan Result Stats:", result.stats);
+        
+        if (result.rawText) {
+          // Display the agent's refusal or conversational text
+          setChatMessages(prev => [
+            ...prev,
+            { role: 'agent', content: result.rawText, type: "chat" },
+            { role: 'agent', content: "Scan halted by agent security policy.", type: "log" }
+          ]);
+        } else {
+          setChatMessages(prev => [
+            ...prev,
+            { role: 'agent', content: `Reconnaissance complete. Found ${result.stats?.assets || 0} assets, ${result.stats?.ports || 0} ports, and ${result.stats?.services || 0} services.`, type: "log" },
+            { role: 'agent', content: "Scan results successfully synchronized with backend database.", type: "chat" }
+          ]);
+        }
+        // Trigger live refresh
         await refreshData();
       } else {
-         setChatMessages(prev => [...prev, { role: 'agent', content: "Execution failed due to server error.", type: "log" }]);
+        setChatMessages(prev => [...prev, { role: 'agent', content: "Execution failed due to server error.", type: "log" }]);
       }
     } catch (e) {
       setChatMessages(prev => [...prev, { role: 'agent', content: "Network error trying to engage agent.", type: "log" }]);
+    }
+  }
+
+  const handleRunRecon = async () => {
+    // Add messages to the terminal to show the button click triggered the action
+    setChatMessages(prev => [
+      ...prev,
+      { role: 'user', content: 'Execute Full OSINT Reconnaissance', type: 'chat' },
+      { role: 'agent', content: `Acknowledged. Engaging AI pipeline for full target scan...`, type: 'log' }
+    ]);
+
+    try {
+      const resp = await fetch('/api/agent/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: 'Execute Full OSINT Reconnaissance', targetId: targetId })
+      });
+
+      if (resp.ok) {
+        setChatMessages(prev => [
+          ...prev,
+          { role: 'agent', content: "Reconnaissance OSINT pipeline complete. Stored newly discovered assets, ports, and services.", type: "log" }
+        ]);
+        await refreshData();
+      } else {
+        setChatMessages(prev => [...prev, { role: 'agent', content: "Agent backend failed to complete OSINT process.", type: "log" }]);
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'agent', content: "Failed to reach AI pipeline.", type: "log" }]);
     }
   }
 
@@ -104,15 +147,11 @@ export default function TargetDetailPage() {
     primaryDomain: rawTarget.domain || rawTarget.primaryDomain || "unknown.com",
   };
 
-  // Derive live counts from global data relationships
-  const targetAssets = data.assets.filter(a => a.targetId === targetId);
-  const targetPorts = data.ports.filter(p => p.targetId === targetId);
-  const targetServices = data.services.filter(s => s.targetId === targetId);
-
-  // Fallbacks for display if relational mappings aren't perfectly seeded for the mock target
-  const displayAssets = targetAssets.length > 0 ? targetAssets : data.assets;
-  const displayPorts = targetPorts.length > 0 ? targetPorts : data.ports;
-  const displayServices = targetServices.length > 0 ? targetServices : data.services;
+  // Derive live counts from global data relationships strictly scoped to this target! 
+  // No dummy data overlays here!
+  const targetAssets = data.assets.filter(a => String(a.targetId) === String(targetId));
+  const targetPorts = data.ports.filter(p => String(p.targetId) === String(targetId));
+  const targetServices = data.services.filter(s => String(s.targetId) === String(targetId));
 
   return (
     <div className="flex h-full flex-col gap-6 p-4 md:p-8 max-w-[1600px] mx-auto w-full">
@@ -142,18 +181,29 @@ export default function TargetDetailPage() {
           </div>
         </div>
 
+        <div className="flex items-center gap-3">
+          <Button onClick={handleRunRecon} className="gap-2 bg-primary hover:bg-primary/90">
+            <PlayIcon className="size-4" /> Launch OSINT Reconnaissance
+          </Button>
+          <Button variant="outline" className="gap-2 hidden md:flex" asChild>
+            <Link href="/assets">
+              <Server className="size-4" /> View Asset Logs
+            </Link>
+          </Button>
+        </div>
+
         {/* Live Counter Dashboard */}
         <div className="flex gap-3 overflow-x-auto pb-2 md:pb-0">
           <div className="flex flex-col justify-center items-center px-6 py-2 bg-muted/30 border rounded-lg min-w mt-2">
-            <span className="text-2xl font-black tabular-nums text-foreground">{displayAssets.length}</span>
+            <span className="text-2xl font-black tabular-nums text-foreground">{targetAssets.length}</span>
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1"><Server className="size-3" /> Assets Discovered</span>
           </div>
           <div className="flex flex-col justify-center items-center px-6 py-2 bg-muted/30 border rounded-lg mt-2">
-            <span className="text-2xl font-black tabular-nums text-foreground">{displayPorts.length}</span>
+            <span className="text-2xl font-black tabular-nums text-foreground">{targetPorts.length}</span>
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1"><Network className="size-3" /> Open Ports</span>
           </div>
           <div className="flex flex-col justify-center items-center px-6 py-2 bg-muted/30 border rounded-lg mt-2">
-            <span className="text-2xl font-black tabular-nums text-foreground">{displayServices.length}</span>
+            <span className="text-2xl font-black tabular-nums text-foreground">{targetServices.length}</span>
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1"><HardDrive className="size-3" /> Services Detected</span>
           </div>
         </div>
@@ -177,7 +227,7 @@ export default function TargetDetailPage() {
 
               <TabsContent value="subdomains" className="m-0 h-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {displayAssets.map((asset, i) => (
+                  {targetAssets.map((asset, i) => (
                     <div key={i} className="flex flex-col p-4 bg-background border rounded-lg shadow-sm hover:border-primary/50 transition-colors">
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-semibold text-sm tracking-tight">{asset.deviceName || asset.name || `host-${i}.${target.primaryDomain}`}</span>
@@ -189,7 +239,7 @@ export default function TargetDetailPage() {
                       </div>
                     </div>
                   ))}
-                  {displayAssets.length === 0 && (
+                  {targetAssets.length === 0 && (
                     <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-lg bg-background/50">
                       Scanning in progress. Waiting for subdomains...
                     </div>
@@ -209,7 +259,7 @@ export default function TargetDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {displayPorts.map((port, i) => (
+                      {targetPorts.map((port, i) => (
                         <tr key={i} className="hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3 font-mono text-xs">{port.hostIp || "10.0.1.15"}</td>
                           <td className="px-4 py-3 font-bold">{port.portNumber || port.port} <span className="text-xs font-normal text-muted-foreground uppercase ml-1">{port.protocol}</span></td>
