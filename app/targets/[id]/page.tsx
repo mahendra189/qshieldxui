@@ -286,7 +286,8 @@ export default function TargetDetailPage() {
               <TabsList className="bg-muted/50 border">
                 <TabsTrigger value="subdomains" className="gap-2"><Globe className="size-4" /> Found Subdomains</TabsTrigger>
                 <TabsTrigger value="ports" className="gap-2"><Network className="size-4" /> Open Ports</TabsTrigger>
-                <TabsTrigger value="history" className="gap-2"><Clock className="size-4" /> Historical URLs</TabsTrigger>
+                <TabsTrigger value="services" className="gap-2"><Server className="size-4" /> Services</TabsTrigger>
+                <TabsTrigger value="history" className="gap-2"><Clock className="size-4" /> History</TabsTrigger>
               </TabsList>
             </div>
 
@@ -300,9 +301,9 @@ export default function TargetDetailPage() {
                         <span className="font-semibold text-sm tracking-tight">{asset.deviceName || asset.name || `host-${i}.${target.primaryDomain}`}</span>
                         <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px]">Alive</Badge>
                       </div>
-                      <span className="font-mono text-xs text-muted-foreground mb-3">{asset.ip || `10.0.${i}.x`}</span>
+                      <span className="font-mono text-xs text-muted-foreground mb-3">{asset.ip || asset.internalIp || "Pending..."}</span>
                       <div className="mt-auto flex items-center gap-2 text-xs text-muted-foreground pt-3 border-t">
-                        <CornerDownRight className="size-3" /> Source: Amass / Subfinder
+                        <CornerDownRight className="size-3" /> Source: AI Agent Scan
                       </div>
                     </div>
                   ))}
@@ -328,9 +329,9 @@ export default function TargetDetailPage() {
                     <tbody className="divide-y">
                       {targetPorts.map((port, i) => (
                         <tr key={i} className="hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs">{port.hostIp || "10.0.1.15"}</td>
+                          <td className="px-4 py-3 font-mono text-xs">{port.hostIp || "N/A"}</td>
                           <td className="px-4 py-3 font-bold">{port.portNumber || port.port} <span className="text-xs font-normal text-muted-foreground uppercase ml-1">{port.protocol}</span></td>
-                          <td className="px-4 py-3 font-medium">{port.service || port.description}</td>
+                          <td className="px-4 py-3 font-medium">{port.service || port.description || "Unidentified"}</td>
                           <td className="px-4 py-3 text-right">
                             <Badge variant="outline" className={port.state === 'open' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-destructive/10 text-destructive border-destructive/20'}>
                               {port.state || "open"}
@@ -338,6 +339,43 @@ export default function TargetDetailPage() {
                           </td>
                         </tr>
                       ))}
+                      {targetPorts.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground italic">No open ports discovered yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="services" className="m-0 h-full">
+                <div className="rounded-md border bg-background overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Service Name</th>
+                        <th className="px-4 py-3 font-medium">Discovery</th>
+                        <th className="px-4 py-3 font-medium">Version</th>
+                        <th className="px-4 py-3 font-medium text-right">Risk</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {targetServices.map((service, i) => (
+                        <tr key={i} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-3 font-bold">{service.name}</td>
+                          <td className="px-4 py-3 font-mono text-xs">{service.port}/{service.protocol}</td>
+                          <td className="px-4 py-3">{service.version || "Unknown"}</td>
+                          <td className="px-4 py-3 text-right">
+                             <Badge className="bg-primary/10 text-primary border-primary/20">{service.riskScore || "Low"}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                      {targetServices.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground italic">No services identified yet.</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

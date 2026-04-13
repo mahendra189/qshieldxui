@@ -78,38 +78,52 @@ export async function POST(request: Request) {
       }
 
       // If ports/services aren't at top level, try to extract them from assets
-      if (!parsedData.ports || !Array.isArray(parsedData.ports)) {
-        const extractedPorts: any[] = [];
-        parsedData.assets.forEach((a: any) => {
-          if (a.ports && Array.isArray(a.ports)) {
-            a.ports.forEach((p: any) => {
-              extractedPorts.push({ ...p, targetId, hostIp: a.ip || a.internalIp || "Unknown" });
+      // We look for 'ports', 'exposedServices', or 'services' inside each asset
+      const extractedPorts: any[] = [];
+      const extractedServices: any[] = [];
+
+      parsedData.assets.forEach((a: any) => {
+        // Try to find ports in various common schemas
+        const portsList = a.ports || a.exposedServices || a.services;
+        if (portsList && Array.isArray(portsList)) {
+          portsList.forEach((p: any) => {
+            // Normalize port data
+            const portData = {
+              ...p,
+              targetId,
+              hostIp: a.ip || a.internalIp || p.hostIp || "Unknown",
+              portNumber: p.portNumber || p.port,
+              service: p.service || p.serviceName || p.description || "Unknown",
+              protocol: p.protocol || "TCP",
+              state: p.state || "open"
+            };
+            extractedPorts.push(portData);
+
+            // Also create a service entry if it looks like a service
+            extractedServices.push({
+              targetId,
+              name: portData.service,
+              port: portData.portNumber,
+              protocol: portData.protocol,
+              lastSeen: new Date(),
+              assetId: a.id || a._id || null
             });
-          }
-        });
-        if (extractedPorts.length > 0) {
-            await db.collection('ports').insertMany(extractedPorts);
-            insertedPorts = extractedPorts.length;
+          });
         }
+      });
+
+      if (extractedPorts.length > 0 && (!parsedData.ports || !Array.isArray(parsedData.ports))) {
+          await db.collection('ports').insertMany(extractedPorts);
+          insertedPorts = extractedPorts.length;
       }
 
-      if (!parsedData.services || !Array.isArray(parsedData.services)) {
-        const extractedServices: any[] = [];
-        parsedData.assets.forEach((a: any) => {
-          if (a.services && Array.isArray(a.services)) {
-            a.services.forEach((s: any) => {
-              extractedServices.push({ ...s, targetId, lastSeen: new Date() });
-            });
-          }
-        });
-        if (extractedServices.length > 0) {
-            await db.collection('services').insertMany(extractedServices);
-            insertedServices = extractedServices.length;
-        }
+      if (extractedServices.length > 0 && (!parsedData.services || !Array.isArray(parsedData.services))) {
+          await db.collection('services').insertMany(extractedServices);
+          insertedServices = extractedServices.length;
       }
     }
     
-    // 2. Process Top-level Ports (if provided)
+    // 2. Process Top-level Ports (if provided and we haven't already extracted from assets)
     if (parsedData?.ports && Array.isArray(parsedData.ports) && insertedPorts === 0) {
       const portsToInsert = parsedData.ports.map((p: any) => ({ ...p, targetId }));
       if (portsToInsert.length > 0) {
@@ -118,7 +132,7 @@ export async function POST(request: Request) {
       }
     }
     
-    // 3. Process Top-level Services (if provided)
+    // 3. Process Top-level Services (if provided and we haven't already extracted from assets)
     if (parsedData?.services && Array.isArray(parsedData.services) && insertedServices === 0) {
       const servicesToInsert = parsedData.services.map((s: any) => ({ ...s, targetId }));
       if (servicesToInsert.length > 0) {
