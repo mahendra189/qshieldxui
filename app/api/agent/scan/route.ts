@@ -3,7 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { auth } from "@/lib/auth";
 
-export const maxDuration = 900; // Increased to 15 minutes for long-running pipeline scans
+export const maxDuration = 3600; // Increased to 1 hour (effectively removing restricted timeouts)
 export const dynamic = 'force-dynamic';
 
 const COMMON_PORTS: Record<number, string> = {
@@ -79,8 +79,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ domain: targetDomain, mode: scanMode }),
-      signal: AbortSignal.timeout(900000) // 15 minutes timeout
+      body: JSON.stringify({ domain: targetDomain, mode: scanMode })
     });
 
     if (!agentResponse.ok) {
