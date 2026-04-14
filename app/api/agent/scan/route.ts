@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    
+
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
 
     const payload = await request.json();
     const targetId = payload.targetId || "TGT-UNKNOWN";
+    const scanMode = payload.mode || "fast";
 
     const client = await clientPromise;
     const db = client.db('cyb_dashboard');
@@ -41,27 +42,24 @@ export async function POST(request: Request) {
     }
 
     const targetDomain = targetDoc?.domain || targetDoc?.primaryDomain || targetDoc?.name || "example.com";
-    console.log(`>>> PROXYING AGENT SCAN FOR DOMAIN: [${targetDomain}] (TargetID: ${targetId})`);
+    console.log(`>>> PROXYING AGENT SCAN [Mode: ${scanMode.toUpperCase()}] FOR DOMAIN: [${targetDomain}] (TargetID: ${targetId})`);
 
     // Query the external agent backend using the new pipeline endpoint
-    // We use a very long timeout (15 minutes) to allow the backend to complete its scan.
-    // The UND_ERR_HEADERS_TIMEOUT error often happens when the connection is closed 
-    // by the environment (e.g. 5 min limit) before headers are received.
     const agentResponse = await fetch("http://127.0.0.1:8000/api/scan_domain_pipeline", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ domain: targetDomain }),
+      body: JSON.stringify({ domain: targetDomain, mode: scanMode }),
       signal: AbortSignal.timeout(900000) // 15 minutes timeout
     });
-    
+
     if (!agentResponse.ok) {
       throw new Error(`Agent backend responded with status: ${agentResponse.status}`);
     }
 
     const parsedData = await agentResponse.json();
-    
+
     console.log("--- AGENT PIPELINE RESPONSE RECEIVED ---");
 
     // Clear existing data for this target to ensure a clean "update"
@@ -79,9 +77,9 @@ export async function POST(request: Request) {
 
     // 1. Process Assets
     if (parsedData?.assets && Array.isArray(parsedData.assets)) {
-      const assetsToInsert = parsedData.assets.map((a: any) => ({ 
-        ...a, 
-        targetId, 
+      const assetsToInsert = parsedData.assets.map((a: any) => ({
+        ...a,
+        targetId,
         lastScanned: new Date(),
         status: a.status || 'Active'
       }));
@@ -126,16 +124,16 @@ export async function POST(request: Request) {
       });
 
       if (extractedPorts.length > 0 && (!parsedData.ports || !Array.isArray(parsedData.ports))) {
-          await db.collection('ports').insertMany(extractedPorts);
-          insertedPorts = extractedPorts.length;
+        await db.collection('ports').insertMany(extractedPorts);
+        insertedPorts = extractedPorts.length;
       }
 
       if (extractedServices.length > 0 && (!parsedData.services || !Array.isArray(parsedData.services))) {
-          await db.collection('services').insertMany(extractedServices);
-          insertedServices = extractedServices.length;
+        await db.collection('services').insertMany(extractedServices);
+        insertedServices = extractedServices.length;
       }
     }
-    
+
     // 2. Process Top-level Ports (if provided and we haven't already extracted from assets)
     if (parsedData?.ports && Array.isArray(parsedData.ports) && insertedPorts === 0) {
       const portsToInsert = parsedData.ports.map((p: any) => ({ ...p, targetId }));
@@ -144,7 +142,7 @@ export async function POST(request: Request) {
         insertedPorts = portsToInsert.length;
       }
     }
-    
+
     // 3. Process Top-level Services (if provided and we haven't already extracted from assets)
     if (parsedData?.services && Array.isArray(parsedData.services) && insertedServices === 0) {
       const servicesToInsert = parsedData.services.map((s: any) => ({ ...s, targetId }));
@@ -167,25 +165,25 @@ export async function POST(request: Request) {
 
     // Update targets status
     if (parsedData?.targets && Array.isArray(parsedData.targets)) {
-        for (const t of parsedData.targets) {
-            await db.collection('targets').updateOne(
-                { name: t.name },
-                { $set: { ...t, lastCompletedScan: new Date(), status: 'Idle' } },
-                { upsert: true }
-            );
-        }
-    } else {
-        // Fallback: update the current target status to Idle
+      for (const t of parsedData.targets) {
         await db.collection('targets').updateOne(
-            { id: targetId },
-            { $set: { status: 'Idle', lastCompletedScan: new Date() } }
+          { name: t.name },
+          { $set: { ...t, lastCompletedScan: new Date(), status: 'Idle' } },
+          { upsert: true }
         );
+      }
+    } else {
+      // Fallback: update the current target status to Idle
+      await db.collection('targets').updateOne(
+        { id: targetId },
+        { $set: { status: 'Idle', lastCompletedScan: new Date() } }
+      );
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: `Pipeline scan complete: ${insertedAssets} assets, ${insertedPorts} ports discovered.`, 
+      {
+        success: true,
+        message: `Pipeline scan complete: ${insertedAssets} assets, ${insertedPorts} ports discovered.`,
         stats: { assets: insertedAssets, ports: insertedPorts, services: insertedServices, topologyUpdated },
         agentOutput: parsedData
       },

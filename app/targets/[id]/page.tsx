@@ -29,6 +29,15 @@ import { Play } from "next/font/google"
 import { Progress } from "@/components/ui/progress"
 import { useSession } from "next-auth/react"
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Zap, Search, ShieldAlert } from "lucide-react"
+
 export default function TargetDetailPage() {
   const { data: session } = useSession()
   const params = useParams()
@@ -48,6 +57,7 @@ export default function TargetDetailPage() {
 
   // Scan status and progress
   const [isScanning, setIsScanning] = React.useState(false);
+  const [scanMode, setScanMode] = React.useState("fast");
   const [scanElapsed, setScanElapsed] = React.useState(0);
   const [simulatedProgress, setSimulatedProgress] = React.useState(0);
 
@@ -100,7 +110,7 @@ export default function TargetDetailPage() {
       const resp = await fetch('/api/agent/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: newMsg.content, targetId: targetId })
+        body: JSON.stringify({ prompt: newMsg.content, targetId: targetId, mode: scanMode })
       });
 
       if (resp.ok) {
@@ -146,7 +156,7 @@ export default function TargetDetailPage() {
       const resp = await fetch('/api/agent/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: 'Execute Full OSINT Reconnaissance', targetId: targetId })
+        body: JSON.stringify({ prompt: 'Execute Full OSINT Reconnaissance', targetId: targetId, mode: scanMode })
       });
 
       if (resp.ok) {
@@ -221,9 +231,33 @@ export default function TargetDetailPage() {
 
         <div className="flex items-center gap-3">
           {session?.user?.role !== "customer" && (
-            <Button onClick={handleRunRecon} className="gap-2 bg-primary hover:bg-primary/90">
-              <PlayIcon className="size-4" /> Launch OSINT Reconnaissance
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={scanMode} onValueChange={setScanMode}>
+                <SelectTrigger className="w-[130px] h-9 bg-muted/50 border-muted text-xs font-bold uppercase tracking-tight">
+                  <SelectValue placeholder="Mode" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="fast" className="text-xs font-bold uppercase tracking-tight">
+                    <div className="flex items-center gap-2">
+                      <Zap className="size-3 text-amber-500" /> Fast
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="medium" className="text-xs font-bold uppercase tracking-tight">
+                    <div className="flex items-center gap-2">
+                      <Search className="size-3 text-primary" /> Medium
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="deep" className="text-xs font-bold uppercase tracking-tight">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="size-3 text-emerald-500" /> Deep
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleRunRecon} size="sm" className="gap-2 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                <PlayIcon className="size-4" /> Launch Recon
+              </Button>
+            </div>
           )}
           <Button variant="outline" className="gap-2 hidden md:flex" asChild>
             <Link href="/assets">
