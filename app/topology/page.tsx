@@ -133,14 +133,14 @@ export default function TopologyPage() {
       
       const mappedNodes = targetTopology.nodes.map((node: any) => ({
         id: node.id,
-        type: "asset", // Default to asset type for UI consistency
+        type: node.type || "asset", 
         position: node.position || { x: Math.random() * 400, y: Math.random() * 400 },
         data: {
           id: node.id,
           realId: node.id,
-          name: node.name,
-          ip: node.ip || "Unknown",
-          targetId: targetTopology.targetId
+          name: node.name || node.label || node.id,
+          ip: node.ip || "Unknown IP",
+          targetId: String(targetTopology.targetId)
         }
       }));
 
@@ -159,18 +159,18 @@ export default function TopologyPage() {
     const newEdges: Edge[] = [];
 
     dbData.assets.forEach((asset, index) => {
-      const assetId = asset.deviceName || asset.name || asset.id || `asset-${index}`;
+      const assetId = asset.subdomain || asset.deviceName || asset.name || String(asset._id || asset.id) || `asset-${index}`;
       
       rawNodes.push({
         id: assetId,
         type: "asset",
-        position: { x: 0, y: 0 }, // Will be overwritten by layout
+        position: { x: 0, y: 0 },
         data: {
           id: assetId,
           realId: asset._id || asset.id || assetId,
-          name: asset.os || asset.type || "Unknown Host OS",
-          ip: asset.ip || "10.0.x.x",
-          targetId: asset.targetId || "all" 
+          name: asset.subdomain || asset.name || "Unknown Asset",
+          ip: asset.ip || "Pending...",
+          targetId: String(asset.targetId || "all")
         }
       });
     });
@@ -178,24 +178,31 @@ export default function TopologyPage() {
     // Map Services -> attach to assets
     dbData.services.forEach((service, index) => {
       const serviceId = `svc-${service.name}-${index}`;
+      
+      // Try to find if this service is linked to any asset
       let parentId = service.runningOn;
+      if (!parentId && service.assets && service.assets.length > 0) {
+        parentId = service.assets[0].name || service.assets[0].id;
+      }
       
       if (!parentId || !rawNodes.find(n => n.id === parentId)) {
-         parentId = dbData.assets[0]?.deviceName || `asset-0`; // Fallback parent
+         // If still no parent, we filter by targetId to at least put it near something relevant
+         const targetAsset = dbData.assets.find(a => String(a.targetId) === String(service.targetId));
+         parentId = targetAsset?.subdomain || targetAsset?.name || rawNodes[0]?.id;
       }
 
-      const parentNode = rawNodes.find(n => n.id === parentId);
+      if (!parentId) return;
 
       rawNodes.push({
         id: serviceId,
         type: "service",
-        position: { x: 0, y: 0 }, // overwritten
+        position: { x: 0, y: 0 },
         data: {
           label: service.name,
-          type: service.name.includes("db") ? "Database" : service.name.includes("ssh") ? "SSH" : "HTTP",
+          type: service.name.toUpperCase().includes("HTTP") ? "HTTP" : service.name.toUpperCase().includes("SSH") ? "SSH" : "Database",
           port: service.port || 80,
-          risk: service.name.includes("ssh") ? 85 : 25,
-          targetId: parentNode?.data.targetId || "all"
+          risk: service.riskScore || (service.name.toUpperCase().includes("SSH") ? 85 : 25),
+          targetId: String(service.targetId || "all")
         }
       });
 
@@ -204,7 +211,7 @@ export default function TopologyPage() {
         source: parentId,
         target: serviceId,
         type: "smoothstep",
-        animated: serviceId.includes("db") ? true : false,
+        animated: service.name.toUpperCase().includes("DB"),
         style: { stroke: '#4b5563', strokeWidth: 2 }
       });
     });
