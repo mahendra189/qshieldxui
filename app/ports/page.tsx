@@ -83,7 +83,7 @@ export default function PortsPage() {
   const processedPorts = React.useMemo(() => {
     return pagedPorts.map(p => ({
       ...p,
-      id: p._id || p.id || Math.random().toString(),
+      id: p.id || p._id?.toString() || Math.random().toString(),
       portNumber: p.port || p.portNumber || 0,
       protocol: p.protocol || 'tcp',
       description: p.description || p.service || 'Unknown Protocol',

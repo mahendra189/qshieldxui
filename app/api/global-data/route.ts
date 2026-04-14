@@ -15,13 +15,83 @@ export async function GET(request: Request) {
 
     // If a specific type is requested with pagination
     if (type && ['assets', 'ports', 'services'].includes(type)) {
+      const isGlobal = !targetId || targetId === 'all';
+      
+      // If Global View for Ports or Services, we need to GROUP them to combine across targets
+      if (isGlobal && (type === 'ports' || type === 'services')) {
+        const groupByField = type === 'ports' ? 'portNumber' : 'name';
+        const sortField = type === 'ports' ? 'portNumber' : '_id';
+
+        const pipeline: any[] = [
+          {
+            $group: {
+              _id: type === 'ports' ? { port: "$portNumber", proto: "$protocol" } : "$name",
+              portNumber: { $first: "$portNumber" },
+              name: { $first: "$name" },
+              protocol: { $first: "$protocol" },
+              service: { $first: "$service" },
+              type: { $first: "$type" },
+              version: { $first: "$version" },
+              description: { $first: "$description" },
+              riskScore: { $avg: "$riskScore" },
+              assets: { $push: "$assets" },
+              state: { $first: "$state" }
+            }
+          },
+          // Flatten the assets array (since it's an array of arrays now)
+          {
+            $project: {
+              id: type === 'ports' 
+                ? { $concat: [{ $toString: "$portNumber" }, "-", "$protocol"] }
+                : "$_id",
+              portNumber: 1,
+              name: 1,
+              protocol: 1,
+              service: 1,
+              type: 1,
+              version: 1,
+              description: 1,
+              riskScore: 1,
+              state: 1,
+              assets: {
+                $reduce: {
+                  input: "$assets",
+                  initialValue: [],
+                  in: { $concatArrays: ["$$value", "$$this"] }
+                }
+              }
+            }
+          },
+          { $sort: { [sortField]: 1 } }
+        ];
+
+        // Get total count of groups
+        const countPipeline = [...pipeline, { $count: "total" }];
+        const countResult = await db.collection(type).aggregate(countPipeline).toArray();
+        const total = countResult[0]?.total || 0;
+
+        // Apply pagination to pipeline
+        pipeline.push({ $skip: skip });
+        pipeline.push({ $limit: limit });
+
+        const items = await db.collection(type).aggregate(pipeline).toArray();
+
+        return NextResponse.json({
+          data: items,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        });
+      }
+
+      // Standard non-grouped view (Assets or filtered Target view)
       const query = targetId && targetId !== 'all' ? { targetId } : {};
       
-      // Define sort order based on type
       let sortOrder: any = {};
       if (type === 'ports') sortOrder = { portNumber: 1 };
       else if (type === 'services') sortOrder = { name: 1 };
-      else sortOrder = { createdAt: -1 }; // Default for assets
+      else sortOrder = { createdAt: -1 };
 
       const [items, total] = await Promise.all([
         db.collection(type).find(query).sort(sortOrder).skip(skip).limit(limit).toArray(),
