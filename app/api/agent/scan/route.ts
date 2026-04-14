@@ -197,7 +197,15 @@ export async function POST(request: Request) {
       topologyUpdated = true;
     }
 
-    // Update targets status
+    // Update target status using a robust matching filter
+    const targetFilter = {
+      $or: [
+        { id: targetId },
+        { _id: targetId },
+        ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
+      ]
+    };
+
     if (parsedData?.targets && Array.isArray(parsedData.targets)) {
       for (const t of parsedData.targets) {
         await db.collection('targets').updateOne(
@@ -207,9 +215,8 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      // Fallback: update the current target status to Idle
       await db.collection('targets').updateOne(
-        { id: targetId },
+        targetFilter,
         { $set: { status: 'Idle', lastCompletedScan: new Date() } }
       );
     }

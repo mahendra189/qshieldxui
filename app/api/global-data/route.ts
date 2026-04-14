@@ -1,6 +1,9 @@
 import clientPromise from "@/lib/mongodb";
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -108,13 +111,16 @@ export async function GET(request: Request) {
     }
 
     // Default: Fetch everything (summary view)
-    // We limit these to 100 max to prevent mega-payloads in summary mode
+    // We remove the strict 100 limit to ensure all discoveries are visible in the dashboard
+    // If a targetId is provided, we filter specifically for that target's entities
+    const query = targetId && targetId !== 'all' ? { targetId } : {};
+
     const [targets, assets, services, ports, topology] = await Promise.all([
       db.collection("targets").find({}).toArray(),
-      db.collection("assets").find({}).limit(100).toArray(),
-      db.collection("services").find({}).limit(100).toArray(),
-      db.collection("ports").find({}).limit(100).toArray(),
-      db.collection("topology").find({}).limit(10).toArray(),
+      db.collection("assets").find(query).toArray(),
+      db.collection("services").find(query).toArray(),
+      db.collection("ports").find(query).toArray(),
+      db.collection("topology").find(query).limit(10).toArray(),
     ]);
 
     return NextResponse.json({ targets, assets, services, ports, topology });
