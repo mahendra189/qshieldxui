@@ -20,7 +20,9 @@ export const metadata: Metadata = {
   title: "CYB Dashboard | Intelligence Reconnaissance",
   description: "Advanced AI-driven security reconnaissance and attack surface management.",
   icons: {
-    icon: "/favicon.png",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 }
 
