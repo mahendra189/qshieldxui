@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ChevronDown, ChevronRight, Server, Search, Activity, Clock } from "lucide-react"
+import { ChevronDown, ChevronRight, Server, Search, Activity, Clock, Loader2, ChevronLeft } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,10 +55,41 @@ function Sparkline({ data, score }: { data: number[], score: number }) {
 }
 
 export default function ServicesPage() {
-  const { data } = useGlobalData()
+  const { data: globalData } = useGlobalData()
+  const [pagedServices, setPagedServices] = React.useState<any[]>([])
+  const [currentPage, setCurrentPage] = React.useState(1)
+  const [totalPages, setTotalPages] = React.useState(1)
+  const [totalCount, setTotalCount] = React.useState(0)
+  const [isLoading, setIsLoading] = React.useState(true)
   const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = React.useState("")
   const [selectedTarget, setSelectedTarget] = React.useState("all")
+
+  const fetchServices = React.useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const resp = await fetch(`/api/global-data?type=services&page=${currentPage}&limit=10&targetId=${selectedTarget}`)
+      if (resp.ok) {
+        const result = await resp.json()
+        setPagedServices(result.data)
+        setTotalPages(result.totalPages)
+        setTotalCount(result.total)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentPage, selectedTarget])
+
+  React.useEffect(() => {
+    fetchServices()
+  }, [fetchServices])
+
+  // Reset to page 1 when target changes
+  React.useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedTarget])
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -66,7 +97,7 @@ export default function ServicesPage() {
 
   // Gracefully map the MongoDB data schema back into the robust UI mock schema
   const processedServices = React.useMemo(() => {
-    return data.services.map(s => ({
+    return pagedServices.map(s => ({
       ...s,
       id: s._id || s.id || Math.random().toString(),
       name: s.name || 'Unknown',
@@ -77,7 +108,7 @@ export default function ServicesPage() {
       lastSeen: s.lastSeen || 'Recently',
       assets: s.assets || []
     }))
-  }, [data.services])
+  }, [pagedServices])
 
   const filteredServices = React.useMemo(() => {
     return processedServices.filter(
@@ -107,8 +138,8 @@ export default function ServicesPage() {
             onChange={(e) => setSelectedTarget(e.target.value)}
           >
             <option value="all">Global View (All Targets)</option>
-            {data.targets.map(t => (
-              <option key={t._id || t.id} value={t._id || t.id}>{t.organizationName || t.name}</option>
+            {globalData.targets.map(t => (
+              <option key={t._id || t.id} value={String(t._id || t.id)}>{t.organizationName || t.name}</option>
             ))}
           </select>
           <div className="relative w-full md:w-64">
@@ -137,7 +168,16 @@ export default function ServicesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredServices.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-32 text-center">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Analyzing service exposure risk...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filteredServices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No services found matching your search.
@@ -249,6 +289,47 @@ export default function ServicesPage() {
           </TableBody>
         </Table>
       </div>
+      {/* Pagination Controls */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-between px-2 py-4 border-t bg-card/50 rounded-b-md">
+          <p className="text-xs text-muted-foreground font-medium">
+            Showing <span className="font-bold text-foreground">{(currentPage - 1) * 10 + 1}-{Math.min(currentPage * 10, totalCount)}</span> of <span className="font-bold text-foreground">{totalCount}</span> services
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="h-8 gap-1.5 text-xs font-bold"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+            </Button>
+            <div className="flex items-center gap-1 mx-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <Button
+                  key={p}
+                  variant={currentPage === p ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 w-8 text-xs font-bold p-0"
+                  onClick={() => setCurrentPage(p)}
+                >
+                  {p}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="h-8 gap-1.5 text-xs font-bold"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
