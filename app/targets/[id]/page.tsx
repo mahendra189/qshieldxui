@@ -8,8 +8,13 @@ import {
   Terminal, Bot, Send, HardDrive, ListEnd, Clock,
   AlertTriangle,
   PlayIcon,
-  Trash2
+  Trash2,
+  FileText,
+  Download,
+  Loader2
 } from "lucide-react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -72,6 +77,7 @@ export default function TargetDetailPage() {
   const [scanElapsed, setScanElapsed] = React.useState(0);
   const [simulatedProgress, setSimulatedProgress] = React.useState(0);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = React.useState(false);
 
   const handleDeleteTarget = async () => {
     if (!window.confirm("Are you sure you want to PERMANENTLY remove this target and all its associated scan results?")) {
@@ -158,16 +164,16 @@ export default function TargetDetailPage() {
       const resp = await fetch('/api/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: newMsg.content, 
+        body: JSON.stringify({
+          prompt: newMsg.content,
           targetId: targetId,
-          context: context 
+          context: context
         })
       });
 
       if (resp.ok) {
         const result = await resp.json();
-        
+
         if (result.response) {
           setChatMessages(prev => [
             ...prev,
@@ -247,6 +253,118 @@ export default function TargetDetailPage() {
   const targetPorts = data.ports.filter(p => String(p.targetId) === String(targetId));
   const targetServices = data.services.filter(s => String(s.targetId) === String(targetId));
 
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      // 1. Get AI Summary for the report
+      const context = {
+        target: { name: target.organizationName, domain: target.primaryDomain },
+        assets: targetAssets.map(a => ({ name: a.subdomain || a.name, ip: a.ip })),
+        ports: targetPorts.map(p => ({ port: p.portNumber, protocol: p.protocol, service: p.service })),
+        services: targetServices.map(s => ({ name: s.name, version: s.version, port: s.port }))
+      };
+
+      const aiResp = await fetch('/api/agent/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: "Generate a professional executive summary for a security reconnaissance report. Focus on the overall attack surface and key findings. Keep it to 2-3 paragraphs.",
+          targetId: targetId,
+          context: context
+        })
+      });
+
+      let aiSummary = "Intelligence analyst response unavailable at this time.";
+      if (aiResp.ok) {
+        const result = await aiResp.json();
+        aiSummary = result.response || result.rawText || aiSummary;
+      }
+
+      // 2. Initialize PDF
+      const doc = new jsPDF() as any;
+      const timestamp = new Date().toLocaleString();
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Security Reconnaissance Report", 14, 22);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${timestamp}`, 14, 30);
+
+      // Target Details
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Target Information", 14, 45);
+      doc.setLineWidth(0.5);
+      doc.line(14, 47, 60, 47);
+
+      doc.setFontSize(11);
+      doc.text(`Organization: ${target.organizationName}`, 14, 55);
+      doc.text(`Primary Domain: ${target.primaryDomain}`, 14, 62);
+      doc.text(`Status: ${target.status || 'Active'}`, 14, 69);
+
+      // AI Summary
+      doc.setFontSize(14);
+      doc.text("Executive Summary", 14, 85);
+      doc.setLineWidth(0.5);
+      doc.line(14, 87, 60, 87);
+
+      doc.setFontSize(10);
+      const splitText = doc.splitTextToSize(aiSummary, 180);
+      doc.text(splitText, 14, 95);
+
+      // Assets Table
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text("Discovered Assets", 14, 22);
+
+      const assetData = targetAssets.map(a => [
+        a.subdomain || a.name || 'N/A',
+        a.ip || 'Pending...',
+        'Active'
+      ]);
+
+      autoTable(doc, {
+        startY: 28,
+        head: [['Subdomain / Host', 'IP Address', 'Status']],
+        body: assetData,
+        theme: 'grid',
+        headStyles: { fillColor: [63, 81, 181] }
+      });
+
+      // Services Table
+      const finalY = (doc as any).lastAutoTable.finalY || 30;
+      doc.setFontSize(14);
+      doc.text("Network Services & Exposure", 14, finalY + 15);
+
+      const serviceData = targetServices.map(s => [
+        s.name,
+        `${s.port}/${s.protocol}`,
+        s.version || 'Detected',
+        s.riskScore || 'Low'
+      ]);
+
+      autoTable(doc, {
+        startY: finalY + 20,
+        head: [['Service', 'Port/Proto', 'Version', 'Risk Level']],
+        body: serviceData,
+        theme: 'striped',
+        headStyles: { fillColor: [33, 33, 33] }
+      });
+
+      // Save
+      doc.save(`Security_Report_${target.organizationName.replace(/\s+/g, '_')}.pdf`);
+
+    } catch (error) {
+      console.error("Report generation failed:", error);
+      alert("Failed to generate PDF report.");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col gap-6 p-4 md:p-8 max-w-[1600px] mx-auto w-full">
 
@@ -259,16 +377,13 @@ export default function TargetDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-extrabold tracking-tight">{target.organizationName}</h1>
-              <Badge variant="outline" className={`gap-1.5 px-2.5 py-0.5 ${
-                target.status === "Scanning" || isScanning ? "text-amber-500 border-amber-500/30 bg-amber-500/10" : "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
-              }`}>
+              <Badge variant="outline" className={`gap-1.5 px-2.5 py-0.5 ${target.status === "Scanning" || isScanning ? "text-amber-500 border-amber-500/30 bg-amber-500/10" : "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                }`}>
                 <span className="relative flex h-2 w-2">
-                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    target.status === "Scanning" || isScanning ? "animate-ping bg-amber-400" : "bg-emerald-400"
-                  }`}></span>
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                    target.status === "Scanning" || isScanning ? "bg-amber-500" : "bg-emerald-500"
-                  }`}></span>
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${target.status === "Scanning" || isScanning ? "animate-ping bg-amber-400" : "bg-emerald-400"
+                    }`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${target.status === "Scanning" || isScanning ? "bg-amber-500" : "bg-emerald-500"
+                    }`}></span>
                 </span>
                 {target.status === "Scanning" || isScanning ? "Agent Scanning..." : "Agent Active"}
               </Badge>
@@ -309,10 +424,10 @@ export default function TargetDetailPage() {
               <Button onClick={handleRunRecon} size="sm" className="gap-2 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" disabled={isScanning || isDeleting}>
                 <PlayIcon className="size-4" /> Launch Recon
               </Button>
-              <Button 
-                onClick={handleDeleteTarget} 
-                variant="outline" 
-                size="sm" 
+              <Button
+                onClick={handleDeleteTarget}
+                variant="outline"
+                size="sm"
                 className="gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 border-muted"
                 disabled={isScanning || isDeleting}
               >
@@ -321,6 +436,15 @@ export default function TargetDetailPage() {
               </Button>
             </div>
           )}
+          <Button
+            variant="outline"
+            className="gap-2 hidden md:flex"
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport}
+          >
+            {isGeneratingReport ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+            {isGeneratingReport ? "Generating..." : "Generate Report"}
+          </Button>
           <Button variant="outline" className="gap-2 hidden md:flex" asChild>
             <Link href="/assets">
               <Server className="size-4" /> View Asset Logs
@@ -396,8 +520,8 @@ export default function TargetDetailPage() {
               <TabsContent value="subdomains" className="m-0 h-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {targetAssets.map((asset, i) => (
-                    <Link 
-                      key={i} 
+                    <Link
+                      key={i}
                       href={`/assets/${asset._id || asset.id}`}
                       className="flex flex-col p-4 bg-background border rounded-lg shadow-sm hover:border-primary/50 hover:shadow-md transition-all group"
                     >
@@ -482,7 +606,7 @@ export default function TargetDetailPage() {
                         <tr key={i} className="hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3 font-bold">{service.name}</td>
                           <td className="px-4 py-3 font-mono text-xs">
-                            {service.port}/{service.protocol} 
+                            {service.port}/{service.protocol}
                             <div className="flex gap-1 mt-1">
                               {service.assets?.map((asset: any) => (
                                 <Link key={asset.id} href={`/assets/${asset.id}`}>
@@ -495,7 +619,7 @@ export default function TargetDetailPage() {
                           </td>
                           <td className="px-4 py-3">{service.version || "Detected"}</td>
                           <td className="px-4 py-3 text-right">
-                             <Badge className="bg-primary/10 text-primary border-primary/20">{service.riskScore || "Low"}</Badge>
+                            <Badge className="bg-primary/10 text-primary border-primary/20">{service.riskScore || "Low"}</Badge>
                           </td>
                         </tr>
                       ))}
@@ -570,17 +694,17 @@ export default function TargetDetailPage() {
                   `}>
                     {msg.type === 'log' && <span className="text-emerald-500 mr-2">➜</span>}
                     {msg.role === 'agent' && msg.type === 'chat' ? (
-                      <ReactMarkdown 
+                      <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          table: ({node, ...props}) => <div className="overflow-x-auto my-2"><table className="border-collapse border border-muted-foreground/20 w-full" {...props} /></div>,
-                          th: ({node, ...props}) => <th className="border border-muted-foreground/20 px-2 py-1 bg-muted/50" {...props} />,
-                          td: ({node, ...props}) => <td className="border border-muted-foreground/20 px-2 py-1" {...props} />,
-                          code: ({node, ...props}) => <code className="bg-muted-foreground/10 px-1 rounded font-mono text-xs" {...props} />,
-                          a: ({node, ...props}) => <a className="text-primary underline hover:text-primary/80" {...props} />,
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                          ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2" {...props} />
+                          table: ({ node, ...props }) => <div className="overflow-x-auto my-2"><table className="border-collapse border border-muted-foreground/20 w-full" {...props} /></div>,
+                          th: ({ node, ...props }) => <th className="border border-muted-foreground/20 px-2 py-1 bg-muted/50" {...props} />,
+                          td: ({ node, ...props }) => <td className="border border-muted-foreground/20 px-2 py-1" {...props} />,
+                          code: ({ node, ...props }) => <code className="bg-muted-foreground/10 px-1 rounded font-mono text-xs" {...props} />,
+                          a: ({ node, ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
+                          p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                          ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                          ol: ({ node, ...props }) => <ol className="list-decimal ml-4 mb-2" {...props} />
                         }}
                       >
                         {msg.content}
