@@ -71,6 +71,17 @@ export async function POST(request: Request) {
     }
 
     const targetDomain = targetDoc?.domain || targetDoc?.primaryDomain || targetDoc?.name || "example.com";
+
+    // Update target status to 'Scanning' immediately
+    const targetFilter = {
+      $or: [
+        { id: targetId },
+        { _id: targetId },
+        ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
+      ]
+    };
+    await db.collection('targets').updateOne(targetFilter, { $set: { status: 'Scanning' } });
+
     console.log(`>>> PROXYING AGENT SCAN [Mode: ${scanMode.toUpperCase()}] FOR DOMAIN: [${targetDomain}] (TargetID: ${targetId})`);
 
     // Query the external agent backend using the new pipeline endpoint
@@ -232,6 +243,27 @@ export async function POST(request: Request) {
     );
   } catch (error: any) {
     console.error("Agent pipeline execution failed:", error);
+    
+    // Safety: Reset status so it's not stuck forever
+    try {
+        const payload = await request.clone().json();
+        const targetId = payload.targetId;
+        if (targetId) {
+            const client = await clientPromise;
+            const db = client.db('cyb_dashboard');
+            const targetFilter = {
+                $or: [
+                  { id: targetId },
+                  { _id: targetId },
+                  ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
+                ]
+            };
+            await db.collection('targets').updateOne(targetFilter, { $set: { status: 'Idle' } });
+        }
+    } catch (e) {
+        console.error("Could not reset target status in catch block", e);
+    }
+    
     return NextResponse.json(
       { error: error.name === 'AbortError' ? 'Scan timed out' : 'Failed to process pipeline scan' },
       { status: 500 }
