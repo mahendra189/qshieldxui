@@ -133,14 +133,14 @@ export default function TargetDetailPage() {
     setChatMessages(prev => [...prev, newMsg]);
     setChatInput("");
 
-    // Optimistic UI updates
+    // Optimistic UI updates - Analysis focused, not scanning focused
     setChatMessages(prev => [
       ...prev,
-      { role: 'agent', content: `Acknowledged command. Forwarding instructions to external agent...`, type: 'log' },
-      { role: 'agent', content: `Running Subfinder, Amass, and Pipeline tools for deep mapping. Please wait...`, type: 'log' }
+      { role: 'agent', content: `Analyzing target context and preparing intelligence response...`, type: 'log' }
     ]);
 
-    setIsScanning(true);
+    // We don't set isScanning to true here because chatting is an analytical query, 
+    // not a long-running reconnaissance scan with progress bars.
     try {
       // Gather current intelligence context to pass to the AI
       const context = {
