@@ -89,7 +89,7 @@ export default function TargetsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card overflow-hidden">
+      <div className="rounded-md border bg-background overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

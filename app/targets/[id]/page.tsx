@@ -506,12 +506,12 @@ export default function TargetDetailPage() {
         {/* Left Column: Dynamic Sections */}
         <div className="lg:col-span-2 flex flex-col h-[750px] bg-card border rounded-lg shadow-sm overflow-hidden">
           <Tabs defaultValue="subdomains" className="flex flex-col w-full h-full">
-            <div className="border-b px-4 py-3 bg-muted/10">
-              <TabsList className="bg-muted/50 border">
-                <TabsTrigger value="subdomains" className="gap-2"><Globe className="size-4" /> Found Subdomains</TabsTrigger>
-                <TabsTrigger value="ports" className="gap-2"><Network className="size-4" /> Open Ports</TabsTrigger>
-                <TabsTrigger value="services" className="gap-2"><Server className="size-4" /> Services</TabsTrigger>
-                <TabsTrigger value="history" className="gap-2"><Clock className="size-4" /> History</TabsTrigger>
+            <div className="border-b px-4 py-3 bg-muted/10 overflow-x-auto">
+              <TabsList className="bg-muted/50 border flex w-max h-auto">
+                <TabsTrigger value="subdomains" className="gap-2 shrink-0"><Globe className="size-4" /> Found Subdomains</TabsTrigger>
+                <TabsTrigger value="ports" className="gap-2 shrink-0"><Network className="size-4" /> Open Ports</TabsTrigger>
+                <TabsTrigger value="services" className="gap-2 shrink-0"><Server className="size-4" /> Services</TabsTrigger>
+                <TabsTrigger value="history" className="gap-2 shrink-0"><Clock className="size-4" /> History</TabsTrigger>
               </TabsList>
             </div>
 
@@ -546,7 +546,7 @@ export default function TargetDetailPage() {
               </TabsContent>
 
               <TabsContent value="ports" className="m-0 h-full">
-                <div className="rounded-md border bg-background overflow-hidden">
+                <div className="rounded-md border bg-background overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
                       <tr>
@@ -591,7 +591,7 @@ export default function TargetDetailPage() {
               </TabsContent>
 
               <TabsContent value="services" className="m-0 h-full">
-                <div className="rounded-md border bg-background overflow-hidden">
+                <div className="rounded-md border bg-background overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
                       <tr>

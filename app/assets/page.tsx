@@ -193,13 +193,13 @@ export default function AssetsPage() {
             >
               <ChevronLeft className="h-3.5 w-3.5" /> Previous
             </Button>
-            <div className="flex items-center gap-1 mx-2">
+            <div className="flex items-center gap-1 mx-2 overflow-x-auto max-w-[200px] sm:max-w-[400px] py-1">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <Button
                   key={p}
                   variant={currentPage === p ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 w-8 text-xs font-bold p-0"
+                  className="h-8 w-8 text-xs font-bold p-0 shrink-0"
                   onClick={() => setCurrentPage(p)}
                 >
                   {p}
