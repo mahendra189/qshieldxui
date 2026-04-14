@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react"
+import { Loader2, ChevronLeft } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -97,8 +97,8 @@ export default function PortsPage() {
       (p) => {
         const matchesTarget = selectedTarget === "all" || p.targetId === selectedTarget
         const matchesSearch = p.portNumber.toString().includes(searchQuery) ||
-                              p.protocol.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              p.description.toLowerCase().includes(searchQuery.toLowerCase())
+          p.protocol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.description.toLowerCase().includes(searchQuery.toLowerCase())
         return matchesTarget && matchesSearch
       }
     )
@@ -114,7 +114,7 @@ export default function PortsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <select 
+          <select
             className="flex h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none"
             value={selectedTarget}
             onChange={(e) => setSelectedTarget(e.target.value)}
@@ -170,7 +170,7 @@ export default function PortsPage() {
               filteredPorts.map((portInfo) => (
                 <React.Fragment key={portInfo.id}>
                   {/* Main Row */}
-                  <TableRow 
+                  <TableRow
                     className="cursor-pointer group border-b-0 hover:bg-muted/50 transition-colors"
                   >
                     <TableCell onClick={() => toggleRow(portInfo.id)}>

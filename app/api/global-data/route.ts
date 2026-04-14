@@ -16,8 +16,15 @@ export async function GET(request: Request) {
     // If a specific type is requested with pagination
     if (type && ['assets', 'ports', 'services'].includes(type)) {
       const query = targetId && targetId !== 'all' ? { targetId } : {};
+      
+      // Define sort order based on type
+      let sortOrder: any = {};
+      if (type === 'ports') sortOrder = { portNumber: 1 };
+      else if (type === 'services') sortOrder = { name: 1 };
+      else sortOrder = { createdAt: -1 }; // Default for assets
+
       const [items, total] = await Promise.all([
-        db.collection(type).find(query).skip(skip).limit(limit).toArray(),
+        db.collection(type).find(query).sort(sortOrder).skip(skip).limit(limit).toArray(),
         db.collection(type).countDocuments(query)
       ]);
 
