@@ -9,22 +9,22 @@ The application is structured using the Next.js App Router. The diagram below il
 ```mermaid
 graph TD
     A[Dashboard Root & Auth] --> B[Authentication]
-    B --> B1[/login]
-    B --> B2[/register]
+    B --> B1["/login"]
+    B --> B2["/register"]
     
     A --> C[Core Data Views]
-    C --> C1[/targets : Monitoring Scopes]
-    C --> C2[/assets : Discovered Assets]
-    C --> C3[/services : Exposed Services]
-    C --> C4[/ports : Open Ports]
+    C --> C1["/targets : Monitoring Scopes"]
+    C --> C2["/assets : Discovered Assets"]
+    C --> C3["/services : Exposed Services"]
+    C --> C4["/ports : Open Ports"]
     
     A --> D[Visualizations & Settings]
-    D --> D1[/topology : Network Map]
-    D --> D2[/settings : Configurations]
+    D --> D1["/topology : Network Map"]
+    D --> D2["/settings : Configurations"]
     
-    C1 --> C1a[/targets/new : Onboard Target]
-    C1 --> C1b[/targets/[id] : Target Details]
-    C2 --> C2a[/assets/[id] : Asset Details]
+    C1 --> C1a["/targets/new : Onboard Target"]
+    C1 --> C1b["/targets/[id] : Target Details"]
+    C2 --> C2a["/assets/[id] : Asset Details"]
 ```
 
 ## Database Schema (MongoDB)
