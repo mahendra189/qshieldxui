@@ -35,6 +35,28 @@ const COMMON_PORTS: Record<number, string> = {
   27017: "MongoDB"
 };
 
+async function resolveIP(domain: string): Promise<string> {
+  try {
+    const res = await fetch(`http://localhost:8000/api/get_ip`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ host: domain })
+    });
+
+    if (!res.ok) {
+      return "Pending...";
+    }
+
+    const data = await res.json();
+    return data.ip || "Pending...";
+  } catch (err) {
+    console.error("IP resolve error:", err);
+    return "Pending...";
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -117,15 +139,29 @@ export async function POST(request: Request) {
     // 1. Process Assets
     let assetsToInsert: any[] = [];
     if (parsedData?.assets && Array.isArray(parsedData.assets)) {
-      assetsToInsert = parsedData.assets.map((a: any) => ({
-        targetId,
-        subdomain: a.subdomain,
-        name: a.subdomain || "Unknown Asset",
-        status: 'Active',
-        lastScanned: new Date(),
-        ip: a.ip || "Pending..."
-      }));
-      
+      // assetsToInsert = parsedData.assets.map((a: any) => ({
+      //   targetId,
+      //   subdomain: a.subdomain,
+      //   name: a.subdomain || "Unknown Asset",
+      //   status: 'Active',
+      //   lastScanned: new Date(),
+      //   ip: a.ip || "Pending..."
+      // }));
+      const assetsToInsert = await Promise.all(
+        parsedData.assets.map(async (a: any) => {
+          const ip = await resolveIP(a.subdomain);
+
+          return {
+            targetId,
+            subdomain: a.subdomain,
+            name: a.subdomain || "Unknown Asset",
+            status: 'Active',
+            lastScanned: new Date(),
+            ip
+          };
+        })
+      );
+
       if (assetsToInsert.length > 0) {
         await db.collection('assets').insertMany(assetsToInsert);
         insertedAssets = assetsToInsert.length;
@@ -139,7 +175,7 @@ export async function POST(request: Request) {
         if (a.ports && Array.isArray(a.ports)) {
           a.ports.forEach((portNumber: number) => {
             const serviceName = COMMON_PORTS[portNumber] || "Unknown Service";
-            
+
             // Group for Ports collection
             if (!portGroups[portNumber]) {
               portGroups[portNumber] = {
@@ -209,13 +245,13 @@ export async function POST(request: Request) {
     }
 
     // Update target status using a robust matching filter
-    const targetFilter = {
-      $or: [
-        { id: targetId },
-        { _id: targetId },
-        ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
-      ]
-    };
+    // const targetFilter = {
+    //   $or: [
+    //     { id: targetId },
+    //     { _id: targetId },
+    //     ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
+    //   ]
+    // };
 
     if (parsedData?.targets && Array.isArray(parsedData.targets)) {
       for (const t of parsedData.targets) {
@@ -243,27 +279,27 @@ export async function POST(request: Request) {
     );
   } catch (error: any) {
     console.error("Agent pipeline execution failed:", error);
-    
+
     // Safety: Reset status so it's not stuck forever
     try {
-        const payload = await request.clone().json();
-        const targetId = payload.targetId;
-        if (targetId) {
-            const client = await clientPromise;
-            const db = client.db('cyb_dashboard');
-            const targetFilter = {
-                $or: [
-                  { id: targetId },
-                  { _id: targetId },
-                  ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
-                ]
-            };
-            await db.collection('targets').updateOne(targetFilter, { $set: { status: 'Idle' } });
-        }
+      const payload = await request.clone().json();
+      const targetId = payload.targetId;
+      if (targetId) {
+        const client = await clientPromise;
+        const db = client.db('cyb_dashboard');
+        const targetFilter = {
+          $or: [
+            { id: targetId },
+            { _id: targetId },
+            ...(ObjectId.isValid(targetId) ? [{ _id: new ObjectId(targetId) }] : [])
+          ]
+        };
+        await db.collection('targets').updateOne(targetFilter, { $set: { status: 'Idle' } });
+      }
     } catch (e) {
-        console.error("Could not reset target status in catch block", e);
+      console.error("Could not reset target status in catch block", e);
     }
-    
+
     return NextResponse.json(
       { error: error.name === 'AbortError' ? 'Scan timed out' : 'Failed to process pipeline scan' },
       { status: 500 }

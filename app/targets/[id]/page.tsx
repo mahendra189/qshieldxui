@@ -422,7 +422,7 @@ export default function TargetDetailPage() {
                 </SelectContent>
               </Select>
               <Button onClick={handleRunRecon} size="sm" className="gap-2 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" disabled={isScanning || isDeleting}>
-                <PlayIcon className="size-4" /> Launch Qshield
+                <PlayIcon className="size-4" /> Vulnerability Scan
               </Button>
               <Button
                 onClick={handleDeleteTarget}
